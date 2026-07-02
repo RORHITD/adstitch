@@ -1,0 +1,11 @@
+{
+  "name": "listicle",
+  "description": "\"3 reasons\" retention-contract ad: the numbered open commits the viewer to the payoff. Proven top-performer format for all funnel stages. ~30s.",
+  "beats": [
+    { "id": "hook", "title": "Hook", "goal": "Numbered promise that sets a retention contract — e.g. '3 reasons this beats everything else I tried' (visual pattern-interrupt on frame one)", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "reason1", "title": "Reason 1", "goal": "Strongest differentiator first, shown not told — product visibly demonstrating the point", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "reason2", "title": "Reason 2", "goal": "Second differentiator, ideally answering the category's biggest objection", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "reason3", "title": "Reason 3", "goal": "Most surprising/specific reason — the one people comment about; label hero moment", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "cta", "title": "Call To Action", "goal": "Recap in five words, then one clear action with light urgency", "durationSeconds": 6, "transitionOut": "end" }
+  ]
+}

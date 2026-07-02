@@ -68,12 +68,13 @@ action: leans into the camera holding the can
 
 A 34s five-beat ad at 720p vertical:
 
-| Tier | Video | Keyframes (~7 imgs) | Total |
-| --- | --- | --- | --- |
-| `veo-3.1-fast` | 34s × $0.15 ≈ $5.10 | ≈ $0.95 | **≈ $6** |
-| `veo-3.1` | 34s × $0.40 ≈ $13.60 | ≈ $0.95 | **≈ $14.50** |
+| Tier | Flag | Video | Keyframes (~7 imgs) | Total |
+| --- | --- | --- | --- | --- |
+| `veo-3.1-lite` | `--draft` | 34s × $0.05 ≈ $1.70 | ≈ $0.95 | **≈ $2.65** |
+| `veo-3.1-fast` | `--fast` | 34s × $0.10 ≈ $3.40 | ≈ $0.95 | **≈ $4.35** |
+| `veo-3.1` | (default) | 34s × $0.40 ≈ $13.60 | ≈ $0.95 | **≈ $14.50** |
 
-Extra hook variants for A/B testing: ~$1.20 (fast) / ~$3.20 (quality) each. Rates live in `adstitch.config.json` → `pricing`.
+The intended loop: iterate on `--draft` until the creative is right, then re-render the winner on fast/quality (`--force`). Extra hook variants: ~$0.40 draft / ~$0.80 fast / ~$3.20 quality each. Estimates are cache-aware (unchanged work quotes $0); rates live in `adstitch.config.json` → `pricing`.
 
 ## Configuration
 

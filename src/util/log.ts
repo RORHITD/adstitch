@@ -15,7 +15,13 @@ export async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export async function retry<T>(fn: () => Promise<T>, opts: { tries?: number; label?: string } = {}): Promise<T> {
+/** transient failures worth re-sending; 400/INVALID_ARGUMENT/RAI blocks are not */
+export function isRetryable(err: unknown): boolean {
+  const msg = String((err as Error)?.message ?? err);
+  return /(?:^|[^0-9])(429|500|502|503|504)(?:[^0-9]|$)|UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|overloaded|ETIMEDOUT|ECONNRESET|EPIPE|EAI_AGAIN|fetch failed|network|socket hang up/i.test(msg);
+}
+
+export async function retry<T>(fn: () => Promise<T>, opts: { tries?: number; label?: string; retryAll?: boolean } = {}): Promise<T> {
   const tries = opts.tries ?? 3;
   let lastErr: unknown;
   for (let i = 1; i <= tries; i++) {
@@ -23,7 +29,7 @@ export async function retry<T>(fn: () => Promise<T>, opts: { tries?: number; lab
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (i === tries) break;
+      if (i === tries || (!opts.retryAll && !isRetryable(err))) break;
       const delay = 2000 * i + Math.floor(Math.random() * 1000);
       log.warn(`${opts.label ?? "call"} failed (attempt ${i}/${tries}), retrying in ${Math.round(delay / 1000)}s: ${(err as Error).message}`);
       await sleep(delay);

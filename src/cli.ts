@@ -104,8 +104,9 @@ async function confirmSpend(ctx: Ctx, estTotal: number, yes: boolean): Promise<v
   if (answer !== "y" && answer !== "yes") throw new Error("aborted");
 }
 
-function videoModel(ctx: Ctx, opts: { fast?: boolean; model?: string }): string {
+function videoModel(ctx: Ctx, opts: { fast?: boolean; draft?: boolean; model?: string }): string {
   if (opts.model) return opts.model;
+  if (opts.draft) return ctx.cfg.models.videoLite;
   return opts.fast ? ctx.cfg.models.videoFast : ctx.cfg.models.video;
 }
 
@@ -192,14 +193,16 @@ program
 program
   .command("keyframes")
   .argument("<name>")
+  .option("--beats <ids>", "only these beat ids — cheap creative preview (e.g. --beats reveal)")
   .option("--force")
   .description("generate boundary/start keyframes with identity references")
   .action(async (name: string, opts) => {
     const ctx = makeCtx(program.opts(), name);
     const project = loadProject(ctx.projectsRoot, name);
     const sb = readStoryboard(project);
+    const beats = parseBeats(sb.beats.map((b) => b.id), opts.beats);
     const cast = await ensureCast(project, sb, ctx.provider, ctx.cfg);
-    await generateKeyframes(project, sb, cast, ctx.provider, ctx.cfg, opts.force);
+    await generateKeyframes(project, sb, cast, ctx.provider, ctx.cfg, opts.force, beats);
   });
 
 program
@@ -208,6 +211,7 @@ program
   .option("--beats <ids>", "comma-separated beat ids to render (default: all)")
   .option("--variants <spec>", "extra takes per beat, e.g. hook=3,cta=2")
   .option("--fast", "use the fast (cheaper) video model")
+  .option("--draft", "use the lite draft model (~8x cheaper than quality)")
   .option("--model <id>", "explicit video model id")
   .option("--force", "re-render even if inputs are unchanged")
   .option("--yes", "skip the spend confirmation")
@@ -256,6 +260,7 @@ program
   .argument("<name>")
   .option("--variants <spec>", "extra takes per beat, e.g. hook=3")
   .option("--fast", "use the fast (cheaper) video model")
+  .option("--draft", "use the lite draft model (~8x cheaper than quality)")
   .option("--model <id>", "explicit video model id")
   .option("--transition <t>", "cut | smooth")
   .option("--music <file>")
@@ -298,6 +303,7 @@ program
   .argument("<beatId>")
   .option("--keyframes", "also regenerate this beat's keyframes (neighbors sharing a boundary re-render too)")
   .option("--fast")
+  .option("--draft")
   .option("--model <id>")
   .option("--yes")
   .description("invalidate one beat and re-render it")
@@ -376,6 +382,7 @@ program
   .command("cost")
   .argument("<name>")
   .option("--fast")
+  .option("--draft")
   .option("--model <id>")
   .option("--variants <spec>")
   .description("estimate spend for a full render + show recorded spend")
@@ -402,7 +409,7 @@ program
       const ctx = makeCtx({ provider: "gemini" });
       const models = (await ctx.provider.listModels?.()) ?? [];
       log.ok(`API reachable (${models.length} models visible)`);
-      for (const want of [ctx.cfg.models.text, ctx.cfg.models.image, ctx.cfg.models.imageHq, ctx.cfg.models.video, ctx.cfg.models.videoFast]) {
+      for (const want of [ctx.cfg.models.text, ctx.cfg.models.image, ctx.cfg.models.imageHq, ctx.cfg.models.video, ctx.cfg.models.videoFast, ctx.cfg.models.videoLite]) {
         const found = models.some((m) => m === want || m.startsWith(want));
         log[found ? "ok" : "warn"](`model ${want}${found ? "" : " — not in list (IDs churn; check `adstitch models` and override in adstitch.config.json)"}`);
       }

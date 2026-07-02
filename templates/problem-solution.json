@@ -1,0 +1,10 @@
+{
+  "name": "problem-solution",
+  "description": "Compact demo-first ad for functional products: Hook → Problem shown visually → Demo with one sharp benefit → CTA. ~26s.",
+  "beats": [
+    { "id": "hook", "title": "Hook", "goal": "Name the pain in the viewer's own words within 3 seconds (first-person creator or general-truth phrasing — never 'Do you struggle with…')", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "problem", "title": "Problem", "goal": "Show the frustrating status quo happening on camera — concrete, sensory, relatable", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "demo", "title": "Demo", "goal": "The product visibly solving it, one sharp benefit stated plainly, label readable", "durationSeconds": 8, "transitionOut": "cut" },
+    { "id": "cta", "title": "Call To Action", "goal": "One clear action with a reason to act now", "durationSeconds": 6, "transitionOut": "end" }
+  ]
+}

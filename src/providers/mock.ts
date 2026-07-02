@@ -51,8 +51,8 @@ async function textFilter(label: string, size: number): Promise<string> {
 const BEAT_CONTENT: Record<string, { action: string; dialogue: string; emotion: string }> = {
   hook: { action: "She leans into the camera holding the product, eyebrows raised.", dialogue: "Okay, stop scrolling. You need to see this.", emotion: "playful urgency" },
   problem: { action: "She gestures at the situation, mildly exasperated.", dialogue: "I was so over the usual options. Nothing actually worked.", emotion: "relatable frustration" },
-  reveal: { action: "She lifts the product to camera and turns the label to the lens.", dialogue: "Then I found this — and it honestly changed everything.", emotion: "excited reveal" },
-  result: { action: "She uses the product and reacts genuinely.", dialogue: "The difference is real. I noticed it on day one.", emotion: "satisfied delight" },
+  reveal: { action: "She lifts the product to camera and turns the label to the lens.", dialogue: "Then I found this — and honestly, watch what it does.", emotion: "excited reveal" },
+  result: { action: "She uses the product on camera so the result is visible.", dialogue: "You can literally see the difference — right here, right now.", emotion: "satisfied delight" },
   cta: { action: "She points at the camera, then below to the caption.", dialogue: "Tap the link below and try it yourself.", emotion: "confident invitation" },
 };
 

@@ -47,6 +47,8 @@ export async function generateKeyframes(
   provider: Provider,
   cfg: Config,
   force = false,
+  /** restrict to these beat ids — cheap creative preview before generating everything */
+  onlyBeats?: string[],
 ): Promise<void> {
   const manifest = loadManifest(project);
   const frames = beatFrames(project, sb);
@@ -55,14 +57,16 @@ export async function generateKeyframes(
   const imageCost = provider.name === "mock" ? 0 : (cfg.pricing.imagePerImage[model] ?? 0.1);
   const aspect = cfg.defaults.aspectRatio;
   const limit = pLimit(cfg.defaults.concurrency);
+  const wanted = (i: number) => !onlyBeats || onlyBeats.includes(sb.beats[i].id);
 
-  // collect the unique images to produce (boundary frames appear once)
+  // collect the unique images to produce (boundary frames appear once,
+  // and belong to both neighbors for filtering purposes)
   const jobs: Array<{ id: string; outPath: string; framePrompt: string }> = [];
   sb.beats.forEach((beat, i) => {
-    if (!frames[i].reusedBoundary) {
+    if (!frames[i].reusedBoundary && wanted(i)) {
       jobs.push({ id: `keyframe/${beat.id}-start`, outPath: frames[i].firstPath, framePrompt: beat.startFramePrompt });
     }
-    if (frames[i].lastPath) {
+    if (frames[i].lastPath && (wanted(i) || wanted(i + 1))) {
       if (!beat.endFramePrompt) {
         throw new Error(`beat "${beat.id}" has transitionOut=match but no endFramePrompt — re-run: adstitch plan ${project.name} --force`);
       }
@@ -75,15 +79,16 @@ export async function generateKeyframes(
     jobs.map((job) =>
       limit(async () => {
         const prompt = keyframePrompt(sb, job.framePrompt, aspect);
-        const inputHash = hashInputs({ prompt, model, aspect }, refs);
+        const inputHash = keyframeInputHash(prompt, model, aspect, refs);
         if (!force && isFresh(manifest, job.id, inputHash)) {
           log.dim(`${job.id} unchanged — skipping`);
           return;
         }
         log.info(`keyframe ${path.basename(job.outPath)} (${model})`);
         await provider.generateImage({ model, prompt, aspectRatio: aspect, referenceImagePaths: refs, outPath: job.outPath });
-        recordArtifact(manifest, job.id, { inputHash, path: job.outPath, model, costUsd: imageCost },
-          { kind: "image", model, detail: job.id, costUsd: imageCost });
+        const recModel = provider.name === "mock" ? "mock" : model;
+        recordArtifact(manifest, job.id, { inputHash, path: job.outPath, model: recModel, costUsd: imageCost },
+          { kind: "image", model: recModel, detail: job.id, costUsd: imageCost });
         generated++;
       }),
     ),
@@ -91,6 +96,26 @@ export async function generateKeyframes(
 
   saveManifest(project, manifest);
   log.ok(`keyframes ready (${generated} generated, ${jobs.length - generated} cached) → ${project.keyframesDir}`);
+}
+
+/** the exact inputs that determine a keyframe — shared by renderer and cost estimator */
+export function keyframeInputHash(prompt: string, model: string, aspect: string, refs: string[]): string {
+  return hashInputs({ prompt, model, aspect }, refs);
+}
+
+/** the unique keyframe jobs a storyboard needs (boundary frames appear once) */
+export function keyframeJobs(project: Project, sb: Storyboard): Array<{ id: string; outPath: string; framePrompt: string }> {
+  const frames = beatFrames(project, sb);
+  const jobs: Array<{ id: string; outPath: string; framePrompt: string }> = [];
+  sb.beats.forEach((beat, i) => {
+    if (!frames[i].reusedBoundary) {
+      jobs.push({ id: `keyframe/${beat.id}-start`, outPath: frames[i].firstPath, framePrompt: beat.startFramePrompt });
+    }
+    if (frames[i].lastPath && beat.endFramePrompt) {
+      jobs.push({ id: `keyframe/${beat.id}-boundary`, outPath: frames[i].lastPath, framePrompt: beat.endFramePrompt });
+    }
+  });
+  return jobs;
 }
 
 /** number of unique keyframe images a storyboard needs (for cost estimates) */

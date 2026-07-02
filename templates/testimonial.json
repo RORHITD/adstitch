@@ -1,10 +1,10 @@
 {
   "name": "testimonial",
-  "description": "Trust-first review ad: Hook → Story (how they found it) → Result (specific outcomes) → CTA. ~28s.",
+  "description": "Trust-first review ad: Hook → Story → Result → CTA. ~28s. FTC NOTE: an AI persona may not claim personal experience — this template requires REAL substantiated customer quotes in the brief; the persona presents them as reported results.",
   "beats": [
-    { "id": "hook", "title": "Hook", "goal": "Open with the strongest specific result or a contrarian opinion about the category", "durationSeconds": 6, "transitionOut": "cut" },
-    { "id": "story", "title": "Story", "goal": "Quick personal backstory: skepticism → trying the product; product appears naturally", "durationSeconds": 8, "transitionOut": "cut" },
-    { "id": "result", "title": "Result", "goal": "Two or three concrete outcomes stated like a friend would, product in hand", "durationSeconds": 8, "transitionOut": "cut" },
+    { "id": "hook", "title": "Hook", "goal": "Open with the strongest REAL customer result (quoted from the brief, attributed) or a contrarian opinion about the category", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "story", "title": "Story", "goal": "Presenter relays why people try it: the shared skepticism, then the discovery; product appears naturally", "durationSeconds": 8, "transitionOut": "cut" },
+    { "id": "result", "title": "Result", "goal": "Two or three concrete reported outcomes ('customers say…', quoting the brief's substantiated reviews), product in hand", "durationSeconds": 8, "transitionOut": "cut" },
     { "id": "cta", "title": "Call To Action", "goal": "Soft-sell recommendation plus where to get it", "durationSeconds": 6, "transitionOut": "end" }
   ]
 }

@@ -43,7 +43,8 @@ export function videoPrompt(sb: Storyboard, beat: Beat, aspectRatio: string): st
     `Action: ${beat.action}`,
     `She looks into the lens and says, "${beat.dialogue}" — delivered with ${beat.emotion}.`,
     `The product "${sb.campaign.product.name}" looks exactly like the first-frame image, label sharp and readable.`,
-    `Audio: her natural voice, subtle ambience that matches the location. No music, no on-screen text.`,
+    `Audio: her natural voice, subtle ambience that matches the location. No background music.`,
+    `Strictly no on-screen text of any kind: no subtitles, no captions, no watermarks, no logos.`,
   ].join("\n");
 }
 
@@ -54,6 +55,7 @@ export function keyframePrompt(sb: Storyboard, framePrompt: string, aspectRatio:
     `Use the attached reference images as ground truth: the person's face, hair and body must be IDENTICAL to the person reference; the product and its label must be IDENTICAL to the product reference.`,
     `Wardrobe: ${s.wardrobe}. Location: ${s.setting}. Lighting: ${s.lighting}. Mood: ${s.mood}.`,
     `FRAME: ${framePrompt}`,
+    `Compose with the subject's face and the product in the vertical middle of the frame — the top ~15% and bottom ~35% get covered by platform UI and captions.`,
     `Slightly imperfect casual smartphone framing. No text, no watermark, no borders.`,
   ].join("\n");
 }
@@ -123,6 +125,9 @@ ${paceRule}
 7. "action" describes a continuous, physically plausible movement arc from the start frame to the end of the shot. Keep hands simple (holding, pointing, lifting — no complex finger work).
 8. The product must appear or be referenced in every beat; the label stays legible when featured.
 9. Platform-native tone: this must feel like a real person talking to their phone, not a commercial voiceover.
+10. COMPLIANCE (non-negotiable): the persona is a PRESENTER, not a fake customer. Never invent first-person experience or result claims ("I lost 10 lbs", "cleared my skin", "I noticed it on day one") — the FTC treats an AI persona claiming personal experience as a fake testimonial. Allowed framings: demonstrative ("here's how it works", "watch what happens"), design claims ("built for…", "designed to…"), or attributed proof ("customers report…") ONLY when the brief substantiates it. First-person feelings about the CATEGORY are fine ("I was so tired of X options"); invented product-experience results are not.
+11. Never open with a second-person personal-attribute question ("Do you struggle with [condition]?" — platform violation). Use first-person-creator or general-truth phrasing ("Bloating after every meal isn't normal").
+12. Frame compositions: keep the face and product in the vertical middle of the frame; platform UI covers the top ~15% and bottom ~35%. Avoid prolonged tight close-ups of the mouth and complex finger work (the two most scrutinized AI artifacts).
 
 Return ONLY a JSON object with this exact shape (no markdown, no commentary):
 {

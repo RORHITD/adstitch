@@ -13,6 +13,16 @@ export interface Cast {
   productRefs: string[];
 }
 
+/** resolve reference paths WITHOUT generating anything (for cost estimates) */
+export function castPaths(project: Project): Cast {
+  const userPersona = findAssets(project.assetsDir, "persona");
+  const userProduct = findAssets(project.assetsDir, "product");
+  return {
+    personaRefs: userPersona.length ? userPersona : [path.join(project.castDir, "persona.png")],
+    productRefs: userProduct.length ? userProduct : [path.join(project.castDir, "product.png")],
+  };
+}
+
 /**
  * Resolve the reference images that lock identity across every keyframe.
  * User-supplied files in assets/ always win (real product photos make real ads);
@@ -21,7 +31,9 @@ export interface Cast {
 export async function ensureCast(project: Project, sb: Storyboard, provider: Provider, cfg: Config, force = false): Promise<Cast> {
   const manifest = loadManifest(project);
   const imageModel = cfg.defaults.useHqKeyframes ? cfg.models.imageHq : cfg.models.image;
-  const imageCost = cfg.pricing.imagePerImage[imageModel] ?? 0.1;
+  const isMock = provider.name === "mock";
+  const imageCost = isMock ? 0 : (cfg.pricing.imagePerImage[imageModel] ?? 0.1);
+  const recModel = isMock ? "mock" : imageModel;
   const aspect = cfg.defaults.aspectRatio;
 
   const userPersona = findAssets(project.assetsDir, "persona");
@@ -37,8 +49,8 @@ export async function ensureCast(project: Project, sb: Storyboard, provider: Pro
     if (force || !isFresh(manifest, "cast/persona", inputHash)) {
       log.info(`generating persona reference (${imageModel})`);
       await provider.generateImage({ model: imageModel, prompt, aspectRatio: aspect, outPath: out });
-      recordArtifact(manifest, "cast/persona", { inputHash, path: out, model: imageModel, costUsd: imageCost },
-        { kind: "image", model: imageModel, detail: "cast/persona", costUsd: provider.name === "mock" ? 0 : imageCost });
+      recordArtifact(manifest, "cast/persona", { inputHash, path: out, model: recModel, costUsd: imageCost },
+        { kind: "image", model: recModel, detail: "cast/persona", costUsd: imageCost });
     } else {
       log.dim("persona reference unchanged — skipping");
     }
@@ -55,8 +67,8 @@ export async function ensureCast(project: Project, sb: Storyboard, provider: Pro
     const inputHash = hashInputs({ prompt, model: imageModel, aspect });
     if (force || !isFresh(manifest, "cast/product", inputHash)) {
       await provider.generateImage({ model: imageModel, prompt, aspectRatio: aspect, outPath: out });
-      recordArtifact(manifest, "cast/product", { inputHash, path: out, model: imageModel, costUsd: imageCost },
-        { kind: "image", model: imageModel, detail: "cast/product", costUsd: provider.name === "mock" ? 0 : imageCost });
+      recordArtifact(manifest, "cast/product", { inputHash, path: out, model: recModel, costUsd: imageCost },
+        { kind: "image", model: recModel, detail: "cast/product", costUsd: imageCost });
     } else {
       log.dim("product reference unchanged — skipping");
     }

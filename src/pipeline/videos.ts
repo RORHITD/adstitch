@@ -27,6 +27,30 @@ export function segmentPath(project: Project, sb: Storyboard, beatId: string, va
   return path.join(project.segmentsDir, `${String(i).padStart(2, "0")}-${beatId}${suffix}.mp4`);
 }
 
+export function seedFor(variant: number): number | undefined {
+  return variant > 1 ? 1000 + variant * 7919 : undefined;
+}
+
+/** the exact inputs that determine a segment — shared by renderer and cost estimator */
+export function segmentInputHash(plan: SegmentPlan, cfg: Config, model: string, veoRefs: string[] = []): string {
+  const params = {
+    prompt: plan.prompt,
+    negativePrompt: plan.negativePrompt,
+    model,
+    duration: plan.beat.durationSeconds,
+    aspectRatio: cfg.defaults.aspectRatio,
+    resolution: cfg.defaults.resolution,
+    personGeneration: cfg.defaults.personGeneration,
+    seed: seedFor(plan.variant),
+    veoRefs,
+  };
+  return hashInputs(params, [plan.firstFramePath, ...(plan.lastFramePath ? [plan.lastFramePath] : []), ...veoRefs]);
+}
+
+export function segmentArtifactId(plan: SegmentPlan): string {
+  return `segment/${plan.beat.id}${plan.variant > 1 ? `@${plan.variant}` : ""}`;
+}
+
 export function buildSegmentPlans(project: Project, sb: Storyboard, cfg: Config, opts: VideoRunOptions): SegmentPlan[] {
   const frames = beatFrames(project, sb);
   const plans: SegmentPlan[] = [];
@@ -60,8 +84,27 @@ export async function generateSegments(
   const manifest = loadManifest(project);
   const plans = buildSegmentPlans(project, sb, cfg, opts);
   const limit = pLimit(cfg.defaults.concurrency);
-  const rate = provider.name === "mock" ? 0 : (cfg.pricing.videoPerSecond[opts.model] ?? 0.4);
-  const veoRefs = cfg.defaults.videoReferenceImages ? referenceSet(cast) : undefined;
+  const isMock = provider.name === "mock";
+  if (!isMock && cfg.pricing.videoPerSecond[opts.model] === undefined) {
+    log.warn(`no pricing entry for "${opts.model}" — estimating at $0.40/s. Add it to adstitch.config.json "pricing.videoPerSecond" (and check the model still exists: adstitch models).`);
+  }
+  const rate = isMock ? 0 : (cfg.pricing.videoPerSecond[opts.model] ?? 0.4);
+
+  // 1080p renders require 8s clips on the Gemini API — fail before spending, not mid-run
+  if (cfg.defaults.resolution === "1080p") {
+    const bad = plans.filter((p) => p.beat.durationSeconds !== 8);
+    if (bad.length) {
+      throw new Error(`1080p requires 8s clips, but beats [${[...new Set(bad.map((p) => p.beat.id))].join(", ")}] are shorter — use resolution "720p" or an all-8s template.`);
+    }
+  }
+
+  // Veo reference images can't be combined with first-frame conditioning, and
+  // every adstitch segment is first-frame conditioned. Identity comes from the
+  // keyframes (which DO use the references).
+  if (cfg.defaults.videoReferenceImages) {
+    log.warn(`videoReferenceImages is enabled but incompatible with first-frame conditioning — ignoring (cast refs still shape every keyframe)`);
+  }
+  const veoRefs = undefined;
 
   // frame-matched beats can still generate IN PARALLEL because boundary
   // keyframes exist up front — no waiting on the previous segment to render.
@@ -73,20 +116,9 @@ export async function generateSegments(
         for (const f of [plan.firstFramePath, plan.lastFramePath]) {
           if (f && !fs.existsSync(f)) throw new Error(`missing keyframe ${f} — run: adstitch keyframes ${project.name}`);
         }
-        const artifactId = `segment/${plan.beat.id}${plan.variant > 1 ? `@${plan.variant}` : ""}`;
-        const seed = plan.variant > 1 ? 1000 + plan.variant * 7919 : undefined;
-        const params = {
-          prompt: plan.prompt,
-          negativePrompt: plan.negativePrompt,
-          model: opts.model,
-          duration: plan.beat.durationSeconds,
-          aspectRatio: cfg.defaults.aspectRatio,
-          resolution: cfg.defaults.resolution,
-          personGeneration: cfg.defaults.personGeneration,
-          seed,
-          veoRefs: veoRefs ?? [],
-        };
-        const inputHash = hashInputs(params, [plan.firstFramePath, ...(plan.lastFramePath ? [plan.lastFramePath] : []), ...(veoRefs ?? [])]);
+        const artifactId = segmentArtifactId(plan);
+        const seed = seedFor(plan.variant);
+        const inputHash = segmentInputHash(plan, cfg, opts.model, veoRefs);
         if (!opts.force && isFresh(manifest, artifactId, inputHash)) {
           log.dim(`${artifactId} unchanged — skipping`);
           cached++;
@@ -111,8 +143,9 @@ export async function generateSegments(
           pollIntervalMs: cfg.defaults.pollIntervalMs,
           timeoutMs: cfg.defaults.videoTimeoutMs,
         });
-        recordArtifact(manifest, artifactId, { inputHash, path: plan.outPath, model: opts.model, costUsd: cost, remoteUri: result.remoteUri },
-          { kind: "video", model: opts.model, detail: artifactId, costUsd: cost });
+        const recModel = isMock ? "mock" : opts.model;
+        recordArtifact(manifest, artifactId, { inputHash, path: plan.outPath, model: recModel, costUsd: cost, remoteUri: result.remoteUri },
+          { kind: "video", model: recModel, detail: artifactId, costUsd: cost });
         saveManifest(project, manifest); // persist as we go — a crash shouldn't lose paid renders
         generated++;
         log.ok(`${artifactId} → ${plan.outPath}`);

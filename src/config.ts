@@ -12,9 +12,10 @@ export const ConfigSchema = z.object({
     .object({
       text: z.string().default("gemini-2.5-flash"),
       image: z.string().default("gemini-2.5-flash-image"),
-      imageHq: z.string().default("gemini-3-pro-image-preview"),
+      imageHq: z.string().default("gemini-3-pro-image"),
       video: z.string().default("veo-3.1-generate-preview"),
       videoFast: z.string().default("veo-3.1-fast-generate-preview"),
+      videoLite: z.string().default("veo-3.1-lite-generate-preview"),
     })
     .prefault({}),
   defaults: z
@@ -37,10 +38,13 @@ export const ConfigSchema = z.object({
     .object({
       videoPerSecond: z.record(z.string(), z.number()).default({
         "veo-3.1-generate-preview": 0.4,
-        "veo-3.1-fast-generate-preview": 0.15,
+        "veo-3.1-fast-generate-preview": 0.1,
+        "veo-3.1-lite-generate-preview": 0.05,
       }),
       imagePerImage: z.record(z.string(), z.number()).default({
         "gemini-2.5-flash-image": 0.039,
+        "gemini-3.1-flash-image": 0.067,
+        "gemini-3-pro-image": 0.134,
         "gemini-3-pro-image-preview": 0.134,
       }),
     })

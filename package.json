@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node scripts/smoke.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.16.0",

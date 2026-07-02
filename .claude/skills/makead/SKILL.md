@@ -1,27 +1,31 @@
 ---
 name: makead
-description: Turn a product idea or ad script into a finished stitched video ad using adstitch. Use when the user gives an ad idea, product, or script and wants the full ad produced (research → script → keyframes → videos → final stitch), or wants to iterate on an existing ad project.
+description: Turn a product idea or ad script into a finished stitched video ad using adstitch. Use when the user gives an ad idea, product, or script and wants the full ad produced (competitor research → script → keyframes → videos → final stitch), or wants to iterate on an existing ad project.
 ---
 
 # makead — idea in, finished ad out
 
-You are the researcher + creative director; adstitch (this repo's CLI) is the deterministic renderer. The user gives an idea or a script; you do everything else, checkpointing with them before money is spent.
+You are the researcher + creative director; adstitch (this repo's CLI) is the deterministic renderer. The user gives an idea or a script; you do everything else, checkpointing before money is spent.
 
-All commands run from the repo root: `node dist/cli.js <cmd>` (or `adstitch <cmd>` if linked). First time in a session, run `node dist/cli.js doctor` and stop if the key/ffmpeg is broken.
+Commands run from the repo root: `node dist/cli.js <cmd>`. First time in a session run `doctor`; stop if the key/ffmpeg is broken. References for your phases: `references/research-playbook.md` (Phase 1), `references/ad-science.md` (Phase 2), `docs/COMPLIANCE.md` (always).
 
-## Phase 1 — Understand (no cost)
+## Phase 0 — Intake (no cost)
 
-If the user gave only an idea, collect what's missing (ask once, together): product name + what it is, audience, platform (default tiktok 9:16), CTA/offer, and **substantiated claims only** — never invent product claims; verify anything factual (pricing, "no card", ingredients, results) against the user or their site before it goes in copy.
+Collect in one round: product name + what it is (or URL — fetch it for facts and voice), audience, platform (default tiktok 9:16), CTA/offer, and **substantiated claims only** — never invent product claims; anything factual (pricing, ingredients, results) gets verified against the user or their site before it enters copy.
 
-If they gave a URL, fetch it for product facts and voice. Optionally search for 2-3 winning hook patterns in the product's category — steal the *pattern*, not the words.
+## Phase 1 — Market research (no cost, 15–30 min)
 
-## Phase 2 — Script (no cost; the user approves this)
+Execute `references/research-playbook.md`: 3 competitors → complaint themes (with verbatims), praise themes/table stakes, live-ad intel via the Meta Ads Library MCP tool when available, category language, angle map. Compliance-tag every theme as you go.
 
-Pick a template: `ugc-5beat` (default; editorial cuts), `ugc-5beat-seamless` (one-take feel), `before-after`, `testimonial`. Durations are fixed per template (4/6/8s beats).
+Write the result into the project's `brief.md` under `# Market insights` (JSON block + the 5-line executive summary) — the storyboard planner reads the whole brief, so real complaint language flows straight into the Problem beat and dialogue.
 
-Draft the script and show it as plain copyable text, one line per beat, word-capped at **≤ 2.2 words × the beat's seconds** (hook 8s → ≤17 words). Hooks: pattern-interrupt, first-person, no brand-speak. CTA: one action.
+## Phase 2 — Script (no cost; user approves before any spend)
 
-Iterate with the user until approved. Do not proceed to spend without an approved script.
+Template by intent (`templates/`): `ugc-5beat` default · `problem-solution` functional demo · `listicle` objection-heavy categories · `before-after` (never health/beauty/weight) · `testimonial` ONLY with real substantiated customer quotes · `ugc-5beat-seamless` one-take feel.
+
+Apply `references/ad-science.md`: payoff by second 3; hooks from the taxonomy aimed at the angle-map's *underused* space; dialogue ≤2.2 words × seconds per beat; persona = presenter, never a fake customer (FTC); no second-person personal-attribute hooks; product visible throughout; CTA = one action.
+
+Show the script as plain copyable text, one line per beat + action notes. Offer 3 hook alternatives (visually distinct scenes, not word swaps). Iterate until the user approves.
 
 ## Phase 3 — Project files (no cost)
 
@@ -29,46 +33,43 @@ Iterate with the user until approved. Do not proceed to spend without an approve
 node dist/cli.js init <name> --template <t> --product "<product>"
 ```
 
-- Write `projects/<name>/brief.md` (product/audience/CTA/notes from Phase 1).
-- Write `projects/<name>/script.md` with the approved lines (verbatim-locked by the planner):
+Write `brief.md` (Phase 0 + 1 content) and `script.md` (approved lines, verbatim-locked):
 
 ```md
 ## hook
 "<approved line>"
-action: <optional staging note>
+action: <staging note>
 ```
 
-- Tell the user to drop real product photos in `projects/<name>/assets/` as `product1.png…` — this is the single biggest quality lever. Wait for them if they have photos; generated product shots are a last resort.
+Ask for real product photos → `projects/<name>/assets/product1.png…` (the single biggest quality lever; wait if they have them). Then `plan <name>` and show the beat table; hand-edit `storyboard.json` if anything reads wrong.
 
-Then `node dist/cli.js plan <name>` and show the beat table (dialogue + start-frame descriptions). Edit `storyboard.json` fields directly if anything reads wrong (it re-renders only what changed).
+## Phase 4 — See the creative before committing (~$0.15, then ~$1)
 
-## Phase 4 — Keyframes checkpoint (~$1)
+1. **Style frame first:** `keyframes <name> --beats reveal` → ONE image (~$0.13). Show the user: right persona? right vibe? label correct? Adjust `storyboard.json` style fields and re-run until it looks like the ad they imagined.
+2. Then the full set: `keyframes <name>` → eyeball all frames (same face everywhere, poses sensible, face+product vertically centered — top 15%/bottom 35% get covered by platform UI).
 
-```bash
-node dist/cli.js keyframes <name> && open projects/<name>/keyframes/
-```
+Do not render video until keyframes pass.
 
-Have the user eyeball: same face everywhere? label readable? poses sensible? Fix by editing that beat's `startFramePrompt`/`endFramePrompt` in storyboard.json and re-running keyframes (only changed frames regenerate). Do not render video until keyframes pass.
-
-## Phase 5 — Render + stitch (main spend; confirm first)
+## Phase 5 — Render + stitch (confirmed spend)
 
 ```bash
-node dist/cli.js videos <name> --fast     # ~$5 for a 34s ad; shows estimate, asks confirmation
+node dist/cli.js videos <name> --draft     # ~$1.70 full ad on Veo Lite — the iteration tier
 node dist/cli.js stitch <name>
 ```
 
-Deliver `projects/<name>/final/*.mp4`. First-ever real run on a fresh key: validate with one beat first (`--beats hook`, ~$1.20).
+Iterate at draft prices (`regen <name> <beat> --draft`, `--variants hook=3` ≈ $0.40/extra hook). When the creative is right: `videos <name> --force --fast` (~$3.40) or quality (`--force`, ~$13.60) for the ship version, then `stitch`. First-ever run on a fresh key: validate with `--beats hook` first. Deliver `projects/<name>/final/*.mp4`.
 
-## Phase 6 — Iterate
+## Phase 6 — Ship + iterate
 
-- Weak beat: `node dist/cli.js regen <name> <beat>` (add `--keyframes` to redo its frames; neighbors sharing a boundary re-render automatically).
-- A/B hooks: `videos <name> --fast --variants hook=3`, then `stitch <name> --pick hook=2 --out <name>-hookB`.
+- A/B: `--variants hook=3` + `stitch --pick hook=2 --out <name>-h2`. Hooks must differ *visually* to count as different creatives — vary `startFramePrompt` scenes across variants, not just words.
 - Music bed: `stitch <name> --music <file.mp3>`.
-- Happy with the creative: re-render final on the quality model (drop `--fast`, ~$14.50) before running as an ad.
+- Name exports parseably: `{yyyymmdd}_{concept}_{angle}_{hook}_{template}` via `--out`.
+- **Upload compliance (tell the user, every time):** TikTok → flip the "AI-generated content" toggle (mandatory; duplication resets it). Meta auto-labels AI ads — never strip metadata. Details: `docs/COMPLIANCE.md`.
+- Kill/refresh doctrine and safe-zone specs: `references/ad-science.md`.
 
 ## Rules
 
-- Rehearse anything for $0 with `--provider mock --yes` (placeholder clips, real pipeline).
-- Never bypass the spend confirmation on someone else's behalf; show the estimate.
-- Costs and model IDs live in `adstitch.config.json`; `node dist/cli.js models` lists what the key can see if an ID 404s.
-- Troubleshooting: `doctor` (env), `status <name>` (progress + ledger), docs/CONTINUITY.md (why joins work).
+- Rehearse anything for $0: `--provider mock --yes`.
+- Never bypass the spend confirmation on the user's behalf; show the estimate (it's cache-aware — unchanged work shows $0).
+- Model IDs churn: `models` lists what the key sees; override in `adstitch.config.json`.
+- Troubleshooting: `doctor`, `status <name>`, `docs/CONTINUITY.md`.

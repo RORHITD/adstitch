@@ -96,17 +96,20 @@ export class GeminiProvider implements Provider {
     const request: any = { model: req.model, prompt: req.prompt, config };
     if (req.firstFramePath) request.image = localImage(req.firstFramePath);
 
+    // Optional config features vary by model version; on invalid-argument
+    // rejections, degrade one feature at a time. negativePrompt content is
+    // already folded into the prompt text, so dropping the param is safe.
+    const degradable = ["referenceImages", "negativePrompt"] as const;
     let operation: any;
-    try {
-      operation = await retry(() => this.ai.models.generateVideos(request), { label: `veo(${req.model})`, tries: 2 });
-    } catch (err) {
-      // Feature combos vary by model version; reference images are an optional enhancer.
-      if (config.referenceImages) {
-        log.warn(`Veo rejected the call with referenceImages (${(err as Error).message}); retrying without them`);
-        delete config.referenceImages;
-        operation = await retry(() => this.ai.models.generateVideos(request), { label: `veo(${req.model})` });
-      } else {
-        throw err;
+    for (;;) {
+      try {
+        operation = await retry(() => this.ai.models.generateVideos(request), { label: `veo(${req.model})`, tries: 2 });
+        break;
+      } catch (err) {
+        const next = degradable.find((k) => config[k] !== undefined);
+        if (!next) throw err;
+        log.warn(`Veo rejected the call (${(err as Error).message}); retrying without ${next}`);
+        delete config[next];
       }
     }
 
@@ -116,7 +119,7 @@ export class GeminiProvider implements Provider {
         throw new Error(`Veo operation timed out after ${Math.round(req.timeoutMs / 60000)}min (${operation.name ?? "unnamed"})`);
       }
       await sleep(req.pollIntervalMs);
-      operation = await retry(() => this.ai.operations.getVideosOperation({ operation }), { label: "veo poll" });
+      operation = await retry(() => this.ai.operations.getVideosOperation({ operation }), { label: "veo poll", retryAll: true });
     }
 
     if (operation.error) {
