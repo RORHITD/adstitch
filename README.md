@@ -45,6 +45,21 @@ node dist/cli.js run my-ad --provider mock --yes
 
 Every artifact is content-hashed in `manifest.json`: re-runs skip anything whose inputs didn't change, so a crash or an edit never re-bills finished work. Real-money runs show a cost estimate and ask for confirmation (`--yes` to skip).
 
+## Two ways to drive it
+
+**Give it a script.** Drop a `script.md` next to the brief with your exact lines — the planner uses them verbatim and designs visuals around them (beats you omit are written for you; over-long lines get a pacing warning):
+
+```md
+## hook
+"Okay, stop scrolling. You need to see this."
+action: leans into the camera holding the can
+
+## cta
+"Tap the link below — 20% off this week."
+```
+
+**Give it an idea.** In Claude Code, run `/makead` from this repo: Claude researches the product, drafts the script with you (word-capped per beat), writes the project files, checkpoints you on the $1 keyframes, then renders and stitches the final ad.
+
 ## Templates
 
 `ugc-5beat` (the classic stitched ad, editorial cuts), `ugc-5beat-seamless` (frame-matched, plays like one take), `before-after`, `testimonial`. Add your own JSON to `templates/` — durations must be 4/6/8s (Veo's allowed lengths).

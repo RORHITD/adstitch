@@ -1,10 +1,12 @@
 import fs from "node:fs";
+import path from "node:path";
 import { StoryboardSchema, type Storyboard, type Template } from "../types.js";
 import type { Provider } from "../providers/types.js";
 import type { Config } from "../config.js";
 import type { Project } from "./state.js";
 import { loadManifest, saveManifest, isFresh, recordArtifact } from "./state.js";
 import { storyboardRequestPrompt } from "./prompts.js";
+import { parseScript, validateScript, warnDialoguePacing } from "./script.js";
 import { hashInputs, readJson, writeJson } from "../util/fs.js";
 import { log } from "../util/log.js";
 
@@ -27,13 +29,20 @@ export async function planStoryboard(
   const template = readJson<Template>(templatePath);
   const manifest = loadManifest(project);
 
-  const inputHash = hashInputs({ brief, template, model: cfg.models.text, provider: provider.name });
+  const scriptPath = path.join(project.dir, "script.md");
+  const script = fs.existsSync(scriptPath) ? parseScript(scriptPath) : undefined;
+  if (script) {
+    validateScript(script, template, scriptPath);
+    log.info(`script.md found — ${Object.keys(script).length} locked line(s): ${Object.keys(script).join(", ")}`);
+  }
+
+  const inputHash = hashInputs({ brief, template, script, model: cfg.models.text, provider: provider.name });
   if (!force && isFresh(manifest, "storyboard", inputHash)) {
     log.dim(`storyboard unchanged — skipping (use --force to re-plan)`);
     return readJson<Storyboard>(project.storyboardPath);
   }
 
-  const prompt = storyboardRequestPrompt(brief, template, guessProductName(brief));
+  const prompt = storyboardRequestPrompt(brief, template, guessProductName(brief), script);
   let lastError = "";
   for (let attempt = 1; attempt <= 2; attempt++) {
     const raw = await provider.generateJson({
@@ -61,12 +70,19 @@ export async function planStoryboard(
       lastError = `expected ${template.beats.length} beats, got ${sb.beats.length}`;
       continue;
     }
-    sb.beats = sb.beats.map((beat, i) => ({
-      ...beat,
-      id: template.beats[i].id,
-      durationSeconds: template.beats[i].durationSeconds,
-      transitionOut: template.beats[i].transitionOut,
-    }));
+    sb.beats = sb.beats.map((beat, i) => {
+      const id = template.beats[i].id;
+      const locked = script?.[id];
+      return {
+        ...beat,
+        id,
+        durationSeconds: template.beats[i].durationSeconds,
+        transitionOut: template.beats[i].transitionOut,
+        // user-authored script lines are applied verbatim, whatever the LLM returned
+        ...(locked ? { dialogue: locked.dialogue, ...(locked.action ? { action: locked.action } : {}) } : {}),
+      };
+    });
+    warnDialoguePacing(sb);
 
     writeJson(project.storyboardPath, sb);
     recordArtifact(manifest, "storyboard", { inputHash, path: project.storyboardPath, model: cfg.models.text });

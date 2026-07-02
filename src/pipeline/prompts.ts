@@ -76,11 +76,24 @@ export function castProductPrompt(sb: Storyboard, aspectRatio: string): string {
   ].join("\n");
 }
 
-export function storyboardRequestPrompt(brief: string, template: Template, productNameGuess: string): string {
+export function storyboardRequestPrompt(
+  brief: string,
+  template: Template,
+  productNameGuess: string,
+  script?: Record<string, { dialogue: string; action?: string }>,
+): string {
   const skeleton = template.beats;
   const paceRule = skeleton
     .map((b) => `- ${b.id} (${b.durationSeconds}s): dialogue MUST be ≤ ${Math.max(6, Math.round(b.durationSeconds * 2.2))} words`)
     .join("\n");
+
+  const scriptSection = script && Object.keys(script).length
+    ? `\nLOCKED SCRIPT — the user wrote these lines. Use them as the "dialogue" fields VERBATIM (do not rewrite, shorten, or extend them; ignore the word caps for these beats). Design camera, action and frames around them:\n${Object.entries(
+        script,
+      )
+        .map(([id, s]) => `- ${id}: "${s.dialogue}"${s.action ? ` (action note: ${s.action})` : ""}`)
+        .join("\n")}\n`
+    : "";
 
   return `You are a senior direct-response creative director planning a stitched multi-segment UGC video ad.
 Each segment will be generated INDEPENDENTLY by a video model, so consistency comes only from what you write here.
@@ -92,6 +105,7 @@ CREATIVE BRIEF:
 ${brief}
 ---
 
+${scriptSection}
 BEAT SKELETON — keep ids, durations and transitions exactly as given, fill in the content:
 BEAT_SKELETON_JSON:
 ${JSON.stringify(skeleton, null, 2)}

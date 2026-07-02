@@ -126,6 +126,12 @@ tiktok
 # Persona (optional — describe the on-camera creator; leave blank to let the planner invent one)
 
 # Notes (optional — tone, references, competitor ads you like, things to avoid)
+
+<!-- Want exact lines? Create script.md next to this file:
+## hook
+"Your verbatim opening line."
+action: optional staging note
+Beats you omit are written by the planner. -->
 `;
 
 const program = new Command();
