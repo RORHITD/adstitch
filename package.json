@@ -1,0 +1,29 @@
+{
+  "name": "adstitch",
+  "version": "0.1.0",
+  "description": "Generate stitched multi-beat ad creatives (hook → problem → reveal → result → CTA) from a product brief using Veo / Gemini APIs, with keyframe-chained continuity so segments cut together seamlessly.",
+  "type": "module",
+  "bin": {
+    "adstitch": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^1.16.0",
+    "commander": "^14.0.0",
+    "execa": "^9.5.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}

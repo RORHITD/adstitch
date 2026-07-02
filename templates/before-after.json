@@ -1,0 +1,10 @@
+{
+  "name": "before-after",
+  "description": "Compact transformation ad: Hook → Before (the struggle) → After (the change, product featured) → CTA. ~24s.",
+  "beats": [
+    { "id": "hook", "title": "Hook", "goal": "Tease the transformation in one line — make the viewer need to see the after", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "before", "title": "Before", "goal": "Show the frustrating status quo, concrete and relatable", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "after", "title": "After", "goal": "Show life with the product — visible difference, product hero moment with readable label", "durationSeconds": 8, "transitionOut": "cut" },
+    { "id": "cta", "title": "Call To Action", "goal": "One clear action with a reason to act now", "durationSeconds": 4, "transitionOut": "end" }
+  ]
+}

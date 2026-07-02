@@ -1,0 +1,11 @@
+{
+  "name": "ugc-5beat",
+  "description": "The classic stitched UGC ad (Higgsfield-style): Hook → Problem → Product Reveal → Result → CTA. Editorial cuts between beats, identity/scene locked. ~34s.",
+  "beats": [
+    { "id": "hook", "title": "Hook", "goal": "Stop the scroll in the first second with a pattern interrupt aimed at the target audience's pain or curiosity", "durationSeconds": 8, "transitionOut": "cut" },
+    { "id": "problem", "title": "Problem", "goal": "Make the viewer feel the specific pain/frustration the product solves — relatable, concrete, first-person", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "reveal", "title": "Product Reveal", "goal": "Introduce the product as the discovery; hero shot of the product with the label clearly readable", "durationSeconds": 8, "transitionOut": "cut" },
+    { "id": "result", "title": "Result", "goal": "Show the product in use and the felt outcome — proof, reaction, transformation", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "cta", "title": "Call To Action", "goal": "Direct, single call to action with light urgency; point to the link/caption", "durationSeconds": 6, "transitionOut": "end" }
+  ]
+}

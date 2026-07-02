@@ -1,0 +1,11 @@
+{
+  "name": "ugc-5beat-seamless",
+  "description": "Same 5 beats as ugc-5beat but every join is frame-matched (transitionOut=match) — plays like one continuous take. Adjacent beats share a boundary keyframe.",
+  "beats": [
+    { "id": "hook", "title": "Hook", "goal": "Stop the scroll in the first second with a pattern interrupt aimed at the target audience's pain or curiosity", "durationSeconds": 8, "transitionOut": "match" },
+    { "id": "problem", "title": "Problem", "goal": "Make the viewer feel the specific pain/frustration the product solves — relatable, concrete, first-person", "durationSeconds": 6, "transitionOut": "match" },
+    { "id": "reveal", "title": "Product Reveal", "goal": "Introduce the product as the discovery; hero shot of the product with the label clearly readable", "durationSeconds": 8, "transitionOut": "match" },
+    { "id": "result", "title": "Result", "goal": "Show the product in use and the felt outcome — proof, reaction, transformation", "durationSeconds": 6, "transitionOut": "match" },
+    { "id": "cta", "title": "Call To Action", "goal": "Direct, single call to action with light urgency; point to the link/caption", "durationSeconds": 6, "transitionOut": "end" }
+  ]
+}

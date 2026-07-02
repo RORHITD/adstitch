@@ -1,0 +1,10 @@
+{
+  "name": "testimonial",
+  "description": "Trust-first review ad: Hook → Story (how they found it) → Result (specific outcomes) → CTA. ~28s.",
+  "beats": [
+    { "id": "hook", "title": "Hook", "goal": "Open with the strongest specific result or a contrarian opinion about the category", "durationSeconds": 6, "transitionOut": "cut" },
+    { "id": "story", "title": "Story", "goal": "Quick personal backstory: skepticism → trying the product; product appears naturally", "durationSeconds": 8, "transitionOut": "cut" },
+    { "id": "result", "title": "Result", "goal": "Two or three concrete outcomes stated like a friend would, product in hand", "durationSeconds": 8, "transitionOut": "cut" },
+    { "id": "cta", "title": "Call To Action", "goal": "Soft-sell recommendation plus where to get it", "durationSeconds": 6, "transitionOut": "end" }
+  ]
+}
