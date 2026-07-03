@@ -27,6 +27,8 @@ Apply `references/ad-science.md`: payoff by second 3; hooks from the taxonomy ai
 
 Show the script as plain copyable text, one line per beat + action notes. Offer 3 hook alternatives (visually distinct scenes, not word swaps). Iterate until the user approves.
 
+**Viral-ad cloning:** if the user shares an ad they like (link or description), break down its structure — hook pattern, beat order, per-beat seconds, camera language, tone — and rebuild that structure for their product (never their footage, persona, or claims). Map it onto the closest template, overriding beat goals as needed.
+
 ## Phase 3 — Project files (no cost)
 
 ```bash
@@ -45,7 +47,7 @@ Ask for real product photos → `projects/<name>/assets/product1.png…` (the si
 
 ## Phase 4 — See the creative before committing (~$0.15, then ~$1)
 
-1. **Style frame first:** `keyframes <name> --beats reveal` → ONE image (~$0.13). Show the user: right persona? right vibe? label correct? Adjust `storyboard.json` style fields and re-run until it looks like the ad they imagined.
+1. **Style frame first:** `keyframes <name> --beats reveal --candidates 3` → three takes on the hero frame (~$0.40). Show the user: right persona? right vibe? label correct? Pick by overwriting the primary file (`cp b2-reveal-start.alt2.png b2-reveal-start.png`); adjust `storyboard.json` style fields and re-run until it looks like the ad they imagined.
 2. Then the full set: `keyframes <name>` → eyeball all frames (same face everywhere, poses sensible, face+product vertically centered — top 15%/bottom 35% get covered by platform UI).
 
 Do not render video until keyframes pass.

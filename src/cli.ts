@@ -194,6 +194,7 @@ program
   .command("keyframes")
   .argument("<name>")
   .option("--beats <ids>", "only these beat ids — cheap creative preview (e.g. --beats reveal)")
+  .option("--candidates <n>", "N alternates per frame; pick by overwriting the primary file", (v: string) => parseInt(v, 10), 1)
   .option("--force")
   .description("generate boundary/start keyframes with identity references")
   .action(async (name: string, opts) => {
@@ -202,7 +203,7 @@ program
     const sb = readStoryboard(project);
     const beats = parseBeats(sb.beats.map((b) => b.id), opts.beats);
     const cast = await ensureCast(project, sb, ctx.provider, ctx.cfg);
-    await generateKeyframes(project, sb, cast, ctx.provider, ctx.cfg, opts.force, beats);
+    await generateKeyframes(project, sb, cast, ctx.provider, ctx.cfg, opts.force, beats, opts.candidates);
   });
 
 program

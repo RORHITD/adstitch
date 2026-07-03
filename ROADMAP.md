@@ -24,3 +24,20 @@ Positioning note from the research: every major competitor's worst reviews are a
 | 16 | Two-pass loudnorm | single-pass dynamic mode can pump on quiet clips | stitch.ts | S | Low |
 
 Refuted by research (don't build): separate product-background-replacement (Nano Banana keyframes with real product refs already do this); 16:9-from-9:16 crop exports (destroys composition — re-render natively at 16:9 instead).
+
+## vs Higgsfield (mechanical teardown, 2026-07-02)
+
+Verified against their live product/pricing/docs:
+
+| | Higgsfield | adstitch |
+|---|---|---|
+| Stitched 30s+ ad | **No** — Marketing Studio caps at 15s; official guidance: "batch two prompts and cut them together in post-production" | Core loop: N beats, auto-stitched, frame-matched joins |
+| Continuity | Reference conditioning + Soul ID identity lock; start/end-frame exists only as a **manual** tool | Same identity-lock idea (keyframes + refs) PLUS automatic shared-boundary first/last-frame chaining |
+| Product fidelity | Nano Banana keyframes-first (their best trick) | Same architecture, with *user's real product photos* as ground truth |
+| 30s ad cost | $1–11 first take, ×3–5 retry tax → **$28–57 realistic** (Plus tier), + subscription + expiring credits + throttled "unlimited" queues | $2.65 draft / $4.35 fast / $14.50 quality, BYO key, cache never re-bills, per-artifact ledger |
+| Script control | Prompt-level; no NLE; "prompt adherence 4.8/10" (reviews) | script.md verbatim lock; storyboard.json is fully editable text |
+| Safe zones | **None** (auto-reframe only) | Encoded in keyframe/storyboard prompts + caption specs |
+| Output rights | ToS grants them a perpetual, transferable license to your outputs | Yours (Google API terms) |
+| Batch/API | MCP + credit gates | roadmap #5; hash-cached variants already cheaper structurally |
+
+Adopted from the teardown (shipped same day): 4-candidate keyframe picker (`keyframes --candidates N` — their UGC Factory pattern), named camera-move vocabulary in the planner (their preset library, as prompt language, incl. "Robo Arm"-style orbit for product reveals). Adopt later (folded into table above): virality pre-score → part of #3 auto-QC; Topaz-style upscale/grain finishing pass (S, low); b-roll/cutaway beat type to reduce avatar screen time (S, med — template goal change); viral-ad structural cloning → /makead skill (shipped, no code).

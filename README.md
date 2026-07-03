@@ -94,6 +94,10 @@ Optional `adstitch.config.json` at the repo root or inside a project (project wi
 
 Model IDs churn — `adstitch models` lists what your key can see; override in config. The repo `.env` **overrides** shell-exported `GEMINI_API_KEY`/`GOOGLE_API_KEY` on purpose (stale shell keys are a classic silent failure).
 
+## How this compares to Higgsfield-class tools
+
+Verified teardown (2026-07): Higgsfield's Marketing Studio caps a single generation at **15s** and officially tells users to stitch longer ads themselves in CapCut; frame-to-frame chaining exists only as a manual tool; there are no safe zones; a premium-model 30s ad realistically costs **$28–57** after their 3–5× retry tax on expiring credits; and their ToS keeps a perpetual license to your outputs. adstitch's whole point is the part they don't do: automatic multi-beat stitching with frame-matched joins, at direct-API prices, on your own key, with outputs you own. Their best trick — compositing the product into keyframes with an image model so labels survive — is this repo's core architecture. Full comparison: [ROADMAP.md](ROADMAP.md).
+
 ## Notes
 
 - **Real product photos matter.** Generated product shots drift; photos in `assets/` become ground truth for every frame.

@@ -128,6 +128,7 @@ ${paceRule}
 10. COMPLIANCE (non-negotiable): the persona is a PRESENTER, not a fake customer. Never invent first-person experience or result claims ("I lost 10 lbs", "cleared my skin", "I noticed it on day one") — the FTC treats an AI persona claiming personal experience as a fake testimonial. Allowed framings: demonstrative ("here's how it works", "watch what happens"), design claims ("built for…", "designed to…"), or attributed proof ("customers report…") ONLY when the brief substantiates it. First-person feelings about the CATEGORY are fine ("I was so tired of X options"); invented product-experience results are not.
 11. Never open with a second-person personal-attribute question ("Do you struggle with [condition]?" — platform violation). Use first-person-creator or general-truth phrasing ("Bloating after every meal isn't normal").
 12. Frame compositions: keep the face and product in the vertical middle of the frame; platform UI covers the top ~15% and bottom ~35%. Avoid prolonged tight close-ups of the mouth and complex finger work (the two most scrutinized AI artifacts).
+13. Camera: name ONE simple proven move per beat in the "camera" field — choose from: slow push-in, crash zoom (hooks), handheld selfie sway, slow orbit/arc (product reveals), whip-pan into frame, dolly-out reveal, static with subject lean-in. One move per shot, no combinations.
 
 Return ONLY a JSON object with this exact shape (no markdown, no commentary):
 {

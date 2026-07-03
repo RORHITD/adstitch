@@ -49,6 +49,9 @@ export async function generateKeyframes(
   force = false,
   /** restrict to these beat ids — cheap creative preview before generating everything */
   onlyBeats?: string[],
+  /** generate N alternates per start frame (same prompt, natural variation) — pick by
+   * overwriting the primary file; downstream hashes track file content automatically */
+  candidates = 1,
 ): Promise<void> {
   const manifest = loadManifest(project);
   const frames = beatFrames(project, sb);
@@ -90,6 +93,17 @@ export async function generateKeyframes(
         recordArtifact(manifest, job.id, { inputHash, path: job.outPath, model: recModel, costUsd: imageCost },
           { kind: "image", model: recModel, detail: job.id, costUsd: imageCost });
         generated++;
+
+        // alternates are throwaway picks — ledger-tracked, never freshness-tracked
+        for (let alt = 2; alt <= candidates; alt++) {
+          const altPath = job.outPath.replace(/\.png$/, `.alt${alt}.png`);
+          log.info(`keyframe ${path.basename(altPath)} (candidate ${alt}/${candidates})`);
+          await provider.generateImage({ model, prompt, aspectRatio: aspect, referenceImagePaths: refs, outPath: altPath });
+          manifest.ledger.push({ at: new Date().toISOString(), kind: "image", model: recModel, detail: `${job.id}.alt${alt}`, costUsd: imageCost });
+        }
+        if (candidates > 1) {
+          log.info(`pick a winner: cp ${path.basename(job.outPath).replace(/\.png$/, ".altN.png")} over ${path.basename(job.outPath)} — segments re-render from whichever file wins`);
+        }
       }),
     ),
   );
