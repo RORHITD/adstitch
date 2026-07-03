@@ -9,10 +9,11 @@ import type { Provider } from "./providers/types.js";
 import { GeminiProvider } from "./providers/gemini.js";
 import { MockProvider } from "./providers/mock.js";
 import { projectPaths, loadProject, ensureProjectDirs, loadManifest, saveManifest, type Project } from "./pipeline/state.js";
-import { planStoryboard, readStoryboard } from "./pipeline/storyboard.js";
+import { planStoryboard, readStoryboard, planAlternates } from "./pipeline/storyboard.js";
 import { ensureCast } from "./pipeline/cast.js";
 import { generateKeyframes, beatFrames } from "./pipeline/keyframes.js";
 import { generateSegments, segmentPath } from "./pipeline/videos.js";
+import { savePersona, listPersonas, loadPersona } from "./pipeline/personas.js";
 import { stitchAd } from "./pipeline/stitch.js";
 import { estimateRun, printEstimate, printLedger } from "./pipeline/cost.js";
 import { hasFfmpeg } from "./util/ffmpeg.js";
@@ -147,15 +148,23 @@ program
   .argument("<name>", "project name (kebab-case)")
   .option("--template <t>", "formula template", "ugc-5beat")
   .option("--product <p>", "product name to prefill the brief", "My Product")
+  .option("--persona <slug>", "attach a saved persona (portrait + locked description)")
   .description("scaffold a new campaign project")
   .action((name: string, opts) => {
     templateFile(opts.template); // validate early
     const projectsRoot = program.opts().projectsDir ? path.resolve(program.opts().projectsDir) : path.join(repoRoot, "projects");
     const project = projectPaths(projectsRoot, name);
     if (fs.existsSync(project.briefPath)) throw new Error(`project "${name}" already exists at ${project.dir}`);
+    const persona = opts.persona ? loadPersona(repoRoot, opts.persona) : undefined;
     ensureProjectDirs(project);
     fs.writeFileSync(project.briefPath, BRIEF_TEMPLATE(opts.product));
-    writeJson(path.join(project.dir, "project.json"), { template: opts.template });
+    if (persona) {
+      fs.copyFileSync(persona.portraitPath, path.join(project.assetsDir, "persona.png"));
+      writeJson(path.join(project.dir, "project.json"), { template: opts.template, persona: persona.record });
+      log.ok(`persona "${opts.persona}" attached — portrait → assets/persona.png, description locked into planning`);
+    } else {
+      writeJson(path.join(project.dir, "project.json"), { template: opts.template });
+    }
     log.ok(`project created: ${project.dir}`);
     log.info(`1. edit ${project.briefPath}`);
     log.info(`2. drop real product photos into ${project.assetsDir}/ as product1.png, product2.png … (strongly recommended)`);
@@ -210,11 +219,12 @@ program
   .command("videos")
   .argument("<name>")
   .option("--beats <ids>", "comma-separated beat ids to render (default: all)")
-  .option("--variants <spec>", "extra takes per beat, e.g. hook=3,cta=2")
+  .option("--variants <spec>", "takes per beat, e.g. hook=3 — renders scripted alternates when the beat has them, else seed re-rolls")
   .option("--fast", "use the fast (cheaper) video model")
   .option("--draft", "use the lite draft model (~8x cheaper than quality)")
   .option("--model <id>", "explicit video model id")
   .option("--force", "re-render even if inputs are unchanged")
+  .option("--no-qc", "skip auto-QC (SSIM + judge + single re-roll on failure)")
   .option("--yes", "skip the spend confirmation")
   .description("render each beat with Veo (first/last-frame conditioned)")
   .action(async (name: string, opts) => {
@@ -224,13 +234,32 @@ program
     const model = videoModel(ctx, opts);
     const variants = parseKV(opts.variants);
     const beats = parseBeats(sb.beats.map((b) => b.id), opts.beats);
+    const qc = opts.qc === false ? false : undefined; // undefined → config decides
     const est = estimateRun(project, sb, ctx.cfg, model, variants, beats);
-    printEstimate(est);
+    printEstimate(est, { qcReroll: qc !== false && ctx.cfg.qc.enabled });
     await confirmSpend(ctx, est.totalUsd, !!opts.yes);
     const cast = await ensureCast(project, sb, ctx.provider, ctx.cfg);
     await generateKeyframes(project, sb, cast, ctx.provider, ctx.cfg);
-    const res = await generateSegments(project, sb, cast, ctx.provider, ctx.cfg, { beats, variants, model, force: opts.force });
+    const res = await generateSegments(project, sb, cast, ctx.provider, ctx.cfg, { beats, variants, model, force: opts.force, qc });
     log.ok(`segments done (${res.generated} rendered, ${res.cached} cached) — next: adstitch stitch ${name}`);
+  });
+
+program
+  .command("alternates")
+  .argument("<name>")
+  .argument("<spec>", "takes per beat INCLUDING the base, e.g. hook=3 (= base + 2 alternates)")
+  .option("--force", "regenerate even if the base beat is unchanged")
+  .description("write scripted alternate takes (different line + visually distinct opening) into the storyboard")
+  .action(async (name: string, spec: string, opts) => {
+    const ctx = makeCtx(program.opts(), name);
+    const project = loadProject(ctx.projectsRoot, name);
+    const parsed = parseKV(spec);
+    const sb = await planAlternates(project, ctx.provider, ctx.cfg, projectTemplate(project), parsed, opts.force);
+    for (const b of sb.beats) {
+      b.alternates?.forEach((a, k) => log.dim(`${b.id}@${k + 2}  "${a.dialogue}"`));
+    }
+    const variantSpec = Object.entries(parsed).map(([k, v]) => `${k}=${v}`).join(",");
+    log.info(`render them: adstitch videos ${name} --variants ${variantSpec}   then: adstitch stitch ${name} --matrix ${Object.keys(parsed).join(",")}`);
   });
 
 program
@@ -238,6 +267,7 @@ program
   .argument("<name>")
   .option("--transition <t>", "cut | smooth", undefined)
   .option("--pick <spec>", "variant picks, e.g. hook=2")
+  .option("--matrix <beats>", "emit one final per variant combo of these beats, e.g. --matrix hook")
   .option("--music <file>", "background music bed mixed under the voice")
   .option("--music-volume <v>", "music level 0-1", parseFloat)
   .option("--out <name>", "output basename")
@@ -246,8 +276,34 @@ program
     const ctx = makeCtx(program.opts(), name);
     const project = loadProject(ctx.projectsRoot, name);
     const sb = readStoryboard(project);
+    const transition = (opts.transition ?? ctx.cfg.defaults.transition) as "cut" | "smooth";
+
+    if (opts.matrix) {
+      const ids = parseBeats(sb.beats.map((b) => b.id), opts.matrix)!;
+      const axes = ids.map((id) => {
+        let takes = 1;
+        while (fs.existsSync(segmentPath(project, sb, id, takes + 1))) takes++;
+        if (takes === 1) log.warn(`--matrix ${id}: only 1 take on disk — render more first: adstitch videos ${name} --variants ${id}=N`);
+        return Array.from({ length: takes }, (_, k) => [id, k + 1] as [string, number]);
+      });
+      const combos = axes.reduce<Array<Array<[string, number]>>>((acc, axis) => acc.flatMap((c) => axis.map((a) => [...c, a])), [[]]);
+      const basePicks = parseKV(opts.pick);
+      // sequential: stitchAd shares a .norm scratch dir per project
+      for (const combo of combos) {
+        const out = await stitchAd(project, sb, ctx.cfg, {
+          transition,
+          picks: { ...basePicks, ...Object.fromEntries(combo) },
+          musicPath: opts.music,
+          musicVolume: opts.musicVolume,
+          outName: `${opts.out ?? project.name}-${combo.map(([id, v]) => `${id}${v}`).join("-")}`,
+        });
+        log.ok(`matrix final: ${out}`);
+      }
+      return;
+    }
+
     const out = await stitchAd(project, sb, ctx.cfg, {
-      transition: (opts.transition ?? ctx.cfg.defaults.transition) as "cut" | "smooth",
+      transition,
       picks: parseKV(opts.pick),
       musicPath: opts.music,
       musicVolume: opts.musicVolume,
@@ -259,12 +315,13 @@ program
 program
   .command("run")
   .argument("<name>")
-  .option("--variants <spec>", "extra takes per beat, e.g. hook=3")
+  .option("--variants <spec>", "takes per beat, e.g. hook=3 (scripted alternates when present)")
   .option("--fast", "use the fast (cheaper) video model")
   .option("--draft", "use the lite draft model (~8x cheaper than quality)")
   .option("--model <id>", "explicit video model id")
   .option("--transition <t>", "cut | smooth")
   .option("--music <file>")
+  .option("--no-qc", "skip auto-QC")
   .option("--yes", "skip the spend confirmation")
   .description("full pipeline: plan → cast → keyframes → videos → stitch")
   .action(async (name: string, opts) => {
@@ -276,8 +333,9 @@ program
 
     const model = videoModel(ctx, opts);
     const variants = parseKV(opts.variants);
+    const qc = opts.qc === false ? false : undefined;
     const est = estimateRun(project, sb, ctx.cfg, model, variants);
-    printEstimate(est);
+    printEstimate(est, { qcReroll: qc !== false && ctx.cfg.qc.enabled });
     await confirmSpend(ctx, est.totalUsd, !!opts.yes);
 
     log.step("2/5 cast references");
@@ -287,7 +345,7 @@ program
     await generateKeyframes(project, sb, cast, ctx.provider, ctx.cfg);
 
     log.step("4/5 video segments");
-    const res = await generateSegments(project, sb, cast, ctx.provider, ctx.cfg, { variants, model });
+    const res = await generateSegments(project, sb, cast, ctx.provider, ctx.cfg, { variants, model, qc });
     log.ok(`${res.generated} rendered, ${res.cached} cached`);
 
     log.step("5/5 stitch");
@@ -306,8 +364,9 @@ program
   .option("--fast")
   .option("--draft")
   .option("--model <id>")
+  .option("--no-qc")
   .option("--yes")
-  .description("invalidate one beat and re-render it")
+  .description("invalidate one beat and re-render it (existing variant takes re-render too)")
   .action(async (name: string, beatId: string, opts) => {
     const ctx = makeCtx(program.opts(), name);
     const project = loadProject(ctx.projectsRoot, name);
@@ -316,6 +375,15 @@ program
     if (idx < 0) throw new Error(`unknown beat "${beatId}" — valid: ${sb.beats.map((b) => b.id).join(", ")}`);
 
     const manifest = loadManifest(project);
+
+    // how many takes each beat had BEFORE we drop anything — deleted variant
+    // takes must come back in the re-render
+    const preCounts: Record<string, number> = {};
+    for (const key of Object.keys(manifest.artifacts)) {
+      const m = key.match(/^segment\/([a-z0-9-]+)(?:@(\d+))?$/);
+      if (m) preCounts[m[1]] = Math.max(preCounts[m[1]] ?? 1, m[2] ? parseInt(m[2], 10) : 1);
+    }
+
     const deletedPaths: string[] = [];
     const dropArtifact = (id: string) => {
       const rec = manifest.artifacts[id];
@@ -331,6 +399,9 @@ program
     if (opts.keyframes) {
       dropArtifact(`keyframe/${beatId}-start`);
       dropArtifact(`keyframe/${beatId}-boundary`);
+      for (const key of Object.keys(manifest.artifacts)) {
+        if (key.startsWith(`keyframe/${beatId}-start@`)) dropArtifact(key);
+      }
     }
     saveManifest(project, manifest);
 
@@ -345,12 +416,14 @@ program
 
     const model = videoModel(ctx, opts);
     const beats = [...affected];
-    const est = estimateRun(project, sb, ctx.cfg, model, {}, beats);
-    printEstimate(est);
+    const variants = Object.fromEntries(beats.filter((id) => (preCounts[id] ?? 1) > 1).map((id) => [id, preCounts[id]]));
+    const qc = opts.qc === false ? false : undefined;
+    const est = estimateRun(project, sb, ctx.cfg, model, variants, beats);
+    printEstimate(est, { qcReroll: qc !== false && ctx.cfg.qc.enabled });
     await confirmSpend(ctx, est.totalUsd, !!opts.yes);
     const cast = await ensureCast(project, sb, ctx.provider, ctx.cfg);
     await generateKeyframes(project, sb, cast, ctx.provider, ctx.cfg);
-    const res = await generateSegments(project, sb, cast, ctx.provider, ctx.cfg, { beats, model });
+    const res = await generateSegments(project, sb, cast, ctx.provider, ctx.cfg, { beats, variants, model, qc });
     log.ok(`re-rendered ${res.generated} segment(s) [${beats.join(", ")}] — next: adstitch stitch ${name}`);
   });
 
@@ -367,11 +440,15 @@ program
     if (!hasSb) return;
     const sb = readStoryboard(project);
     const frames = beatFrames(project, sb);
+    const manifest = loadManifest(project);
     sb.beats.forEach((b, i) => {
       const kf = fs.existsSync(frames[i].firstPath) && (!frames[i].lastPath || fs.existsSync(frames[i].lastPath!));
-      const seg = fs.existsSync(segmentPath(project, sb, b.id));
-      const marks = `${kf ? "kf✓" : "kf·"} ${seg ? "vid✓" : "vid·"}`;
-      log.dim(`${b.id.padEnd(10)} ${String(b.durationSeconds).padStart(2)}s [${b.transitionOut.padEnd(5)}] ${marks}  "${b.dialogue.slice(0, 60)}"`);
+      let takes = 0;
+      while (fs.existsSync(segmentPath(project, sb, b.id, takes + 1))) takes++;
+      const qcRec = manifest.artifacts[`segment/${b.id}`]?.qc;
+      const qcMark = qcRec ? (qcRec.pass ? " qc✓" : " qc✗") : "";
+      const vidMark = takes ? `vid✓${takes > 1 ? `×${takes}` : ""}` : "vid·";
+      log.dim(`${b.id.padEnd(10)} ${String(b.durationSeconds).padStart(2)}s [${b.transitionOut.padEnd(5)}] ${kf ? "kf✓" : "kf·"} ${vidMark}${qcMark}  "${b.dialogue.slice(0, 60)}"`);
     });
     if (fs.existsSync(project.finalDir)) {
       for (const f of fs.readdirSync(project.finalDir).filter((f) => f.endsWith(".mp4"))) log.ok(`final/${f}`);
@@ -391,8 +468,36 @@ program
     const ctx = makeCtx(program.opts(), name);
     const project = loadProject(ctx.projectsRoot, name);
     const sb = readStoryboard(project);
-    printEstimate(estimateRun(project, sb, ctx.cfg, videoModel(ctx, opts), parseKV(opts.variants)));
+    printEstimate(estimateRun(project, sb, ctx.cfg, videoModel(ctx, opts), parseKV(opts.variants)), { qcReroll: ctx.cfg.qc.enabled });
     printLedger(project);
+  });
+
+const personaCmd = program.command("persona").description("reusable persona library (portrait + locked description, shared across campaigns)");
+
+personaCmd
+  .command("save")
+  .argument("<slug>", "kebab-case persona name")
+  .requiredOption("--from <project>", "project whose persona to save")
+  .description("save a project's persona (portrait + storyboard description) to the library")
+  .action((slug: string, opts) => {
+    const ctx = makeCtx(program.opts(), opts.from);
+    const project = loadProject(ctx.projectsRoot, opts.from);
+    const sb = readStoryboard(project);
+    const dir = savePersona(repoRoot, slug, project, sb);
+    log.ok(`persona "${slug}" saved → ${dir}`);
+    log.info(`reuse it: adstitch init <new-project> --persona ${slug}`);
+  });
+
+personaCmd
+  .command("list")
+  .description("list saved personas")
+  .action(() => {
+    const all = listPersonas(repoRoot);
+    if (!all.length) {
+      log.info("no personas saved yet — adstitch persona save <slug> --from <project>");
+      return;
+    }
+    for (const { slug, record } of all) log.dim(`${slug.padEnd(22)} ${record.personaVisual.slice(0, 90)}`);
   });
 
 program

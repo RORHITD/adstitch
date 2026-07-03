@@ -87,13 +87,14 @@ export function estimateRun(
   return { rows, totalUsd: rows.reduce((s, r) => s + r.usd, 0), cachedCount };
 }
 
-export function printEstimate(est: Estimate): void {
+export function printEstimate(est: Estimate, opts: { qcReroll?: boolean } = {}): void {
   for (const r of est.rows) log.dim(`${r.item.padEnd(18)} ${r.detail.padEnd(52)} ~$${r.usd.toFixed(2)}`);
   if (est.cachedCount) log.dim(`${est.cachedCount} artifact(s) already up to date — not billed again`);
   if (est.totalUsd === 0) {
     log.money("estimated spend: $0.00 — everything is cached");
   } else {
     log.money(`estimated spend: ~$${est.totalUsd.toFixed(2)}  (rates from config "pricing" — verify current pricing)`);
+    if (opts.qcReroll) log.dim("+ up to 1 auto-QC re-roll per failed segment (same per-segment rate; --no-qc to disable)");
   }
 }
 

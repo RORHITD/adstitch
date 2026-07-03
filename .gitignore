@@ -2,5 +2,6 @@ node_modules/
 dist/
 .env
 projects/
+personas/
 *.log
 .DS_Store

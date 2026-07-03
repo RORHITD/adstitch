@@ -28,11 +28,16 @@ export class GeminiProvider implements Provider {
   }
 
   async generateJson(req: TextRequest): Promise<string> {
+    const parts: any[] = [];
+    for (const img of req.images ?? []) {
+      parts.push({ inlineData: { data: fs.readFileSync(img).toString("base64"), mimeType: mimeFor(img) } });
+    }
+    parts.push({ text: req.prompt });
     const res = await retry(
       () =>
         this.ai.models.generateContent({
           model: req.model,
-          contents: req.prompt,
+          contents: [{ role: "user", parts }],
           config: { responseMimeType: "application/json", temperature: req.temperature ?? 0.7 },
         }),
       { label: `text(${req.model})` },

@@ -55,15 +55,17 @@ Do not render video until keyframes pass.
 ## Phase 5 — Render + stitch (confirmed spend)
 
 ```bash
-node dist/cli.js videos <name> --draft     # ~$1.70 full ad on Veo Lite — the iteration tier
-node dist/cli.js stitch <name>
+node dist/cli.js alternates <name> hook=3  # 2 extra scripted hooks (distinct patterns + openings), ~free
+node dist/cli.js videos <name> --draft --variants hook=3   # ~$2.50 full ad + 2 alt hooks on Veo Lite
+node dist/cli.js stitch <name> --matrix hook               # one final per hook for A/B
 ```
 
-Iterate at draft prices (`regen <name> <beat> --draft`, `--variants hook=3` ≈ $0.40/extra hook). When the creative is right: `videos <name> --force --fast` (~$3.40) or quality (`--force`, ~$13.60) for the ship version, then `stitch`. First-ever run on a fresh key: validate with `--beats hook` first. Deliver `projects/<name>/final/*.mp4`.
+Auto-QC checks every segment (wrong scene / burned captions / anatomy / off-model person) and re-rolls once on failure — the estimate shows the ceiling; `--no-qc` disables. Iterate at draft prices (`regen <name> <beat> --draft`). When the creative is right: `videos <name> --force --fast` (~$3.40) or quality (`--force`, ~$13.60) for the ship version, then `stitch`. First-ever run on a fresh key: validate with `--beats hook` first. Deliver `projects/<name>/final/*.mp4`.
 
 ## Phase 6 — Ship + iterate
 
-- A/B: `--variants hook=3` + `stitch --pick hook=2 --out <name>-h2`. Hooks must differ *visually* to count as different creatives — vary `startFramePrompt` scenes across variants, not just words.
+- A/B: the `alternates` → `--variants` → `--matrix` flow above IS the hook matrix; hand-lock any line via `## hook@2` in script.md. Hooks differ *visually* by design (the alternates prompt enforces distinct openings).
+- Persona reuse: after a winning ad, `persona save <slug> --from <name>`; future campaigns start `init <new> --persona <slug>` (same face + locked description, zero re-casting).
 - Music bed: `stitch <name> --music <file.mp3>`.
 - Name exports parseably: `{yyyymmdd}_{concept}_{angle}_{hook}_{template}` via `--out`.
 - **Upload compliance (tell the user, every time):** TikTok → flip the "AI-generated content" toggle (mandatory; duplication resets it). Meta auto-labels AI ads — never strip metadata. Details: `docs/COMPLIANCE.md`.

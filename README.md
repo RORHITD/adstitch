@@ -37,11 +37,19 @@ node dist/cli.js run my-ad --provider mock --yes
 | `plan <name>` | brief.md → `storyboard.json` (edit it — it's the source of truth) |
 | `cast <name>` | resolve/generate persona + product reference images |
 | `keyframes <name>` | generate start/boundary frames with identity references |
-| `videos <name> [--fast] [--beats ids] [--variants hook=3]` | render each beat with Veo (parallel, resumable) |
-| `stitch <name> [--transition cut\|smooth] [--music f.mp3] [--pick hook=2]` | normalize + join + optional music bed |
+| `alternates <name> hook=3` | write scripted alternate takes into the storyboard (different line + visually distinct opening per take) |
+| `videos <name> [--draft\|--fast] [--beats ids] [--variants hook=3] [--no-qc]` | render each beat with Veo (parallel, resumable, auto-QC'd) |
+| `stitch <name> [--transition cut\|smooth] [--music f.mp3] [--pick hook=2] [--matrix hook]` | normalize + join; `--matrix` emits one final per variant combo |
 | `run <name>` | all of the above |
 | `regen <name> <beat> [--keyframes]` | invalidate one beat and re-render (boundary changes cascade to neighbors automatically) |
+| `persona save <slug> --from <p>` / `persona list` / `init --persona <slug>` | reusable persona library (portrait + locked description across campaigns) |
 | `status` / `cost` / `doctor` / `models` | progress, spend estimate + ledger, env check, live model list |
+
+**Hook matrix.** `alternates my-ad hook=3` asks the planner for 2 extra takes of the hook — each a *different proven hook pattern* with a *visually distinct* opening frame (platforms dedupe visually-similar variants). `videos --variants hook=3` renders them (only the hook re-bills — the body is shared), `stitch --matrix hook` emits `my-ad-hook1/2/3.mp4` for A/B testing. Hand-write alternate lines in `script.md` with `## hook@2` sections — they win over generated ones.
+
+**Auto-QC.** Every rendered segment is checked twice: a free SSIM comparison of the actual first frame against its conditioning keyframe (catches wrong-scene), and a ~$0.001 multimodal judge (same person? burned-in captions? mangled hands? label legible?). On failure it re-rolls once with a new seed, keeps the better take, parks the reject as `.rejected.mp4`, and records the verdict in the manifest — the retry tax made visible and bounded. `--no-qc` or `"qc": {"enabled": false}` disables.
+
+**Personas.** Made an ad with a persona you like? `persona save glowpop-girl --from my-ad`, then every future campaign starts with `init new-ad --persona glowpop-girl` — the portrait becomes the identity reference for every keyframe and the description is imposed verbatim on the storyboard.
 
 Every artifact is content-hashed in `manifest.json`: re-runs skip anything whose inputs didn't change, so a crash or an edit never re-bills finished work. Real-money runs show a cost estimate and ask for confirmation (`--yes` to skip).
 

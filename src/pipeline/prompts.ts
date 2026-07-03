@@ -1,5 +1,12 @@
 import type { Beat, Storyboard, Template } from "../types.js";
 
+export interface LockedPersona {
+  name?: string;
+  personaVisual: string;
+  personaVoice: string;
+  wardrobe?: string;
+}
+
 // The code owns every prompt template; the LLM only fills semantic fields.
 // This guarantees the style block is byte-identical across all segments —
 // which is half of what keeps clips consistent enough to stitch.
@@ -48,6 +55,71 @@ export function videoPrompt(sb: Storyboard, beat: Beat, aspectRatio: string): st
   ].join("\n");
 }
 
+export function alternatesRequestPrompt(
+  sb: Storyboard,
+  beat: Beat,
+  count: number,
+  aspectRatio: string,
+  lockedLines?: Record<number, { dialogue: string; action?: string }>,
+): string {
+  const cap = Math.max(6, Math.round(beat.durationSeconds * 2.2));
+  const base = {
+    title: beat.title,
+    goal: beat.goal,
+    durationSeconds: beat.durationSeconds,
+    camera: beat.camera,
+    action: beat.action,
+    dialogue: beat.dialogue,
+    emotion: beat.emotion,
+    startFramePrompt: beat.startFramePrompt,
+  };
+  const matchRule =
+    beat.transitionOut === "match" && beat.endFramePrompt
+      ? `\n5. CRITICAL: this beat frame-matches into the next one. Every alternate's "action" MUST end with the person in exactly this frozen end frame: "${beat.endFramePrompt}". Design the motion arc so that pose is physically reachable from the alternate's start frame within ${beat.durationSeconds}s.`
+      : "";
+  const lockedSection = lockedLines && Object.keys(lockedLines).length
+    ? `\nLOCKED LINES — the user wrote these; use them VERBATIM as the dialogue for the given alternate number:\n${Object.entries(lockedLines)
+        .map(([n, s]) => `- alternate ${+n - 1} of ${count}: "${s.dialogue}"${s.action ? ` (action note: ${s.action})` : ""}`)
+        .join("\n")}\n`
+    : "";
+
+  return `You are a senior direct-response creative director writing ALTERNATE HOOK-STYLE TAKES of one beat for creative testing. The rest of the ad is locked; only this beat varies.
+ALTERNATES_REQUEST
+ALTERNATES_COUNT: ${count}
+
+${styleBlock(sb, aspectRatio)}
+
+PRODUCT: ${sb.campaign.product.name} — ${sb.campaign.product.description}
+BASE BEAT (${beat.id}):
+${JSON.stringify(base, null, 2)}
+${lockedSection}
+RULES:
+1. Each alternate uses a DIFFERENT proven opening pattern (pick the best ${count} DIFFERENT fits for this product/audience): value promise · statement of intent ("watch me…") · question/invitation · demographic/pain callout · negative ("stop doing X") · hot take · trend-test ("I tested the viral…") · curiosity gap · price shock · POV framing. Never reuse the base beat's pattern.
+2. "startFramePrompt" must describe a VISUALLY DISTINCT frozen frame from the base and from every other alternate — different pose, prop, framing, or position in the SAME location with the SAME person, wardrobe, and lighting (platforms dedupe visually similar openings).
+3. dialogue ≤ ${cap} words, natural spoken register, no emojis. Same compliance rules as the base ad: presenter framing, no invented experience claims, no second-person personal-attribute questions.
+4. "camera": ONE move from: slow push-in, crash zoom, handheld selfie sway, slow orbit/arc, whip-pan into frame, dolly-out reveal, static with subject lean-in.${matchRule}
+
+Return ONLY a JSON object (no markdown): {"alternates": [{"dialogue": string, "action": string, "camera": string, "emotion": string, "startFramePrompt": string}]} with exactly ${count} items.`;
+}
+
+export function qcJudgePrompt(sb: Storyboard): string {
+  return `QC_JUDGE
+You are a strict quality inspector for AI-generated video ad segments.
+Image 1 is the intended first-frame keyframe. The remaining images are frames sampled from the start, middle, and end of the rendered segment.
+The person who must appear: ${sb.style.personaVisual}
+The product: ${sb.campaign.product.name}.
+
+FAIL the segment if ANY of these is true:
+(a) the person in the video frames is clearly a DIFFERENT person than image 1 (face, hair, or wardrobe changed);
+(b) burned-in subtitles, captions, watermarks, or any overlaid text appear;
+(c) grotesque anatomical artifacts: mangled or extra fingers, warped face, melted features;
+(d) the product label is prominently featured but illegibly garbled;
+(e) the scene bears no resemblance to image 1 (wrong location or framing entirely).
+Minor softness, small motion blur, natural pose changes, or slight color shift are NOT failures.
+
+Return ONLY JSON: {"pass": boolean, "reasons": string[]} — reasons empty when passing, each reason ≤12 words otherwise.`;
+}
+
 export function keyframePrompt(sb: Storyboard, framePrompt: string, aspectRatio: string): string {
   const s = sb.style;
   return [
@@ -83,6 +155,7 @@ export function storyboardRequestPrompt(
   template: Template,
   productNameGuess: string,
   script?: Record<string, { dialogue: string; action?: string }>,
+  persona?: LockedPersona,
 ): string {
   const skeleton = template.beats;
   const paceRule = skeleton
@@ -97,6 +170,10 @@ export function storyboardRequestPrompt(
         .join("\n")}\n`
     : "";
 
+  const personaSection = persona
+    ? `\nLOCKED PERSONA — a saved persona is attached to this project. Use these EXACT values verbatim as style.personaVisual and style.personaVoice${persona.wardrobe ? " and style.wardrobe" : ""}; design everything else around this person:\npersonaVisual: ${persona.personaVisual}\npersonaVoice: ${persona.personaVoice}${persona.wardrobe ? `\nwardrobe: ${persona.wardrobe}` : ""}\n`
+    : "";
+
   return `You are a senior direct-response creative director planning a stitched multi-segment UGC video ad.
 Each segment will be generated INDEPENDENTLY by a video model, so consistency comes only from what you write here.
 
@@ -107,7 +184,7 @@ CREATIVE BRIEF:
 ${brief}
 ---
 
-${scriptSection}
+${scriptSection}${personaSection}
 BEAT SKELETON — keep ids, durations and transitions exactly as given, fill in the content:
 BEAT_SKELETON_JSON:
 ${JSON.stringify(skeleton, null, 2)}

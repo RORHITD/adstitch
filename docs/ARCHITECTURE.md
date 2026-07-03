@@ -23,7 +23,14 @@ in `manifest.json`. Stages are independently runnable; `run` chains all five.
   frames are generated with cast references attached.
 - **videos** (`pipeline/videos.ts`) — one Veo call per beat×variant, first-frame
   (and last-frame, in match mode) conditioned, concurrency-limited, manifest saved
-  after every completed render so paid work survives crashes.
+  after every completed render so paid work survives crashes. Variant v>1 renders
+  the beat's scripted `alternates[v-2]` (own start keyframe, different line) when
+  present, else a seed re-roll.
+- **qc** (`pipeline/qc.ts`) — every rendered segment is checked (SSIM of the
+  actual first frame vs its conditioning keyframe + a multimodal judge for
+  person/captions/anatomy/label) and re-rolled once on failure. The artifact
+  keeps its CANONICAL input hash (the retry seed is recorded separately as
+  `actualSeed`) — otherwise re-rolled segments would re-bill forever.
 - **stitch** (`pipeline/stitch.ts`) — normalize (geometry/fps/codec/loudness) →
   concat or xfade chain → optional music bed → `final/`.
 

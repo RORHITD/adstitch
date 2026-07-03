@@ -34,3 +34,42 @@ export async function hasFfmpeg(): Promise<boolean> {
 export async function extractLastFrame(video: string, outPng: string): Promise<void> {
   await ffmpeg(["-sseof", "-0.25", "-i", video, "-frames:v", "1", "-update", "1", outPng]);
 }
+
+/** grab one frame at t seconds */
+export async function extractFrameAt(video: string, t: number, outPng: string): Promise<void> {
+  await ffmpeg(["-ss", t.toFixed(3), "-i", video, "-frames:v", "1", "-update", "1", outPng]);
+}
+
+let ssimAvailable: boolean | undefined;
+
+/**
+ * Structural similarity between two images (0..1, 1 = identical). Both inputs
+ * are normalized to the same size/format first. Returns null when this ffmpeg
+ * build lacks the ssim filter or the comparison fails — callers must treat
+ * null as "check unavailable", never as a failure.
+ */
+export async function ssimCompare(aPng: string, bPng: string): Promise<number | null> {
+  if (ssimAvailable === undefined) {
+    try {
+      const { stdout } = await execa("ffmpeg", ["-hide_banner", "-filters"]);
+      ssimAvailable = / ssim /.test(stdout);
+    } catch {
+      ssimAvailable = false;
+    }
+  }
+  if (!ssimAvailable) return null;
+  try {
+    const { stderr } = await execa("ffmpeg", [
+      "-hide_banner",
+      "-i", aPng,
+      "-i", bPng,
+      "-filter_complex",
+      "[0:v]scale=540:960,format=yuv420p,setsar=1[a];[1:v]scale=540:960,format=yuv420p,setsar=1[b];[a][b]ssim",
+      "-f", "null", "-",
+    ]);
+    const m = stderr.match(/All:\s*([\d.]+)/);
+    return m ? parseFloat(m[1]) : null;
+  } catch {
+    return null;
+  }
+}

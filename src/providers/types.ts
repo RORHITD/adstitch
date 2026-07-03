@@ -2,6 +2,8 @@ export interface TextRequest {
   model: string;
   prompt: string;
   temperature?: number;
+  /** local image paths sent as multimodal input (QC judging) */
+  images?: string[];
 }
 
 export interface ImageRequest {

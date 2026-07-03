@@ -60,8 +60,22 @@ export class MockProvider implements Provider {
   name = "mock";
 
   async generateJson(req: TextRequest): Promise<string> {
+    if (req.prompt.includes("QC_JUDGE")) {
+      return JSON.stringify({ pass: true, reasons: [] });
+    }
+    if (req.prompt.includes("ALTERNATES_REQUEST")) {
+      const count = parseInt(req.prompt.match(/ALTERNATES_COUNT:\s*(\d+)/)?.[1] ?? "1", 10);
+      const alternates = Array.from({ length: count }, (_, k) => ({
+        dialogue: `Alternate take ${k + 2}: a completely different opening line.`,
+        action: `alternate ${k + 2} staging: she enters frame differently and presents the product`,
+        camera: "crash zoom",
+        emotion: "curious energy",
+        startFramePrompt: `Alternate ${k + 2} opening: woman at a visibly different position by the pool, distinct pose and framing, product in hand`,
+      }));
+      return JSON.stringify({ alternates });
+    }
     const m = req.prompt.match(/BEAT_SKELETON_JSON:\s*(\[[\s\S]*?\])\s*END_BEAT_SKELETON_JSON/);
-    if (!m) throw new Error("mock provider: BEAT_SKELETON_JSON marker not found in prompt");
+    if (!m) throw new Error("mock provider: no known marker (BEAT_SKELETON_JSON / ALTERNATES_REQUEST / QC_JUDGE) found in prompt");
     const skeleton = JSON.parse(m[1]) as Array<{ id: string; title: string; goal: string; durationSeconds: number; transitionOut: string }>;
     const product = req.prompt.match(/PRODUCT_NAME:\s*(.+)/)?.[1]?.trim() || "Demo Product";
 

@@ -8,6 +8,17 @@ import { z } from "zod";
 export const TransitionSchema = z.enum(["cut", "match", "end"]);
 export type Transition = z.infer<typeof TransitionSchema>;
 
+// A scripted alternate take of a beat (hook-matrix testing): different line AND
+// a visually distinct opening scene, same locked persona/wardrobe/location.
+export const AlternateSchema = z.object({
+  dialogue: z.string(),
+  action: z.string(),
+  camera: z.string(),
+  emotion: z.string(),
+  startFramePrompt: z.string(),
+});
+export type Alternate = z.infer<typeof AlternateSchema>;
+
 export const BeatSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   title: z.string(),
@@ -19,6 +30,8 @@ export const BeatSchema = z.object({
   emotion: z.string(),
   startFramePrompt: z.string().describe("still-image description of the first frame"),
   endFramePrompt: z.string().optional().describe("still-image description of the last frame; required when transitionOut=match"),
+  /** variant v>1 renders alternates[v-2] — see `adstitch alternates` */
+  alternates: z.array(AlternateSchema).optional(),
   // How this beat connects to the NEXT beat:
   //   cut   = intentional editorial cut (identity/scene locked, new angle)
   //   match = frame-matched: this beat's last frame IS the next beat's first frame
@@ -83,6 +96,10 @@ export interface ArtifactRecord {
   model?: string;
   costUsd?: number;
   remoteUri?: string;
+  /** auto-QC verdict for video segments */
+  qc?: { pass: boolean; reasons: string[]; attempts: number };
+  /** the seed actually rendered with (differs from the plan seed after a QC re-roll) */
+  actualSeed?: number;
   createdAt: string;
 }
 
@@ -98,6 +115,7 @@ export interface Manifest {
 // ---------------------------------------------------------------------------
 
 export interface SegmentPlan {
+  /** the EFFECTIVE beat — for alternate variants, alternate fields merged over the base */
   beat: Beat;
   index: number;
   variant: number; // 1-based; 1 is the default take
@@ -107,4 +125,6 @@ export interface SegmentPlan {
   prompt: string;
   negativePrompt: string;
   outPath: string;
+  /** set for seed re-roll variants; alternates vary by content instead */
+  seed?: number;
 }

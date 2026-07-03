@@ -33,6 +33,14 @@ export const ConfigSchema = z.object({
       videoTimeoutMs: z.number().int().default(10 * 60_000),
     })
     .prefault({}),
+  qc: z
+    .object({
+      /** auto-QC every rendered segment (SSIM conditioning check + multimodal judge), re-roll once on failure */
+      enabled: z.boolean().default(true),
+      /** first-frame vs keyframe similarity floor — lenient by design (catches wrong-scene, not codec noise) */
+      ssimThreshold: z.number().default(0.35),
+    })
+    .prefault({}),
   /** USD estimates only — verify against https://ai.google.dev/gemini-api/docs/pricing */
   pricing: z
     .object({
