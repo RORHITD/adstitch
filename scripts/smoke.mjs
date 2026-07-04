@@ -30,7 +30,7 @@ try {
 
   const final = path.join(proj, "final", "__smoke-cut.mp4");
   check("final video exists", fs.existsSync(final));
-  const expected = 8 + 8 + 8 + 8 + 6 - 4 * (0.4 + 0.25); // match-join trims
+  const expected = 8 + 8 + 8 + 8 + 6;
   const d0 = dur(final);
   check("duration ≈ Σ beats", Math.abs(d0 - expected) < 1.5, `${d0.toFixed(2)}s vs ${expected}s`);
 
@@ -46,6 +46,25 @@ try {
 
   const rerun = sh(`${cli} run __smoke --provider mock --yes`);
   check("second run fully cached", /0 rendered, 5 cached/.test(rerun));
+
+  // ---- speech-aware stitch styles -----------------------------------------
+  // mock timing: speechStart=0.2, speechEnd=d-2 → flow ramps each match clip at
+  // (d-2)+0.25: 8s clips → 6.25 + 1.75/2 = 7.125; cta stays 6 → total ≈ 34.5
+  sh(`${cli} stitch __smoke --provider mock --style flow --out flow-test`);
+  const flowFinal = path.join(proj, "final", "flow-test.mp4");
+  check("flow style stitched", fs.existsSync(flowFinal));
+  const flowDur = dur(flowFinal);
+  check("flow duration ≈ ramped math", Math.abs(flowDur - 34.5) < 1.2, `${flowDur.toFixed(2)}s vs 34.5s`);
+  check("speech timing cached", Object.keys(manifest().artifacts).filter((k) => k.startsWith("timing/")).length === 5);
+
+  sh(`${cli} broll __smoke --provider mock --yes`);
+  check("broll clips rendered", fs.existsSync(path.join(proj, "segments", "broll-1.mp4")) && fs.existsSync(path.join(proj, "segments", "broll-2.mp4")));
+  sh(`${cli} stitch __smoke --provider mock --style tight --cutaways --out tight-test`);
+  const tightFinal = path.join(proj, "final", "tight-test.mp4");
+  check("tight+cutaways stitched", fs.existsSync(tightFinal));
+  // tight: 4 clips → (6.35-0.05)=6.3 each, cta → (4.35-0.05)=4.3, + 4×0.7 inserts ≈ 32.3
+  const tightDur = dur(tightFinal);
+  check("tight duration ≈ speech-cut math", Math.abs(tightDur - 32.3) < 1.5, `${tightDur.toFixed(2)}s vs 32.3s`);
 
   // ---- hook matrix ---------------------------------------------------------
   const altOut = sh(`${cli} alternates __smoke hook=2 --provider mock`);

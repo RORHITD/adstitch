@@ -100,6 +100,8 @@ export interface ArtifactRecord {
   qc?: { pass: boolean; reasons: string[]; attempts: number };
   /** the seed actually rendered with (differs from the plan seed after a QC re-roll) */
   actualSeed?: number;
+  /** cached speech-span analysis for video segments */
+  timing?: { speechStart: number; speechEnd: number };
   createdAt: string;
 }
 

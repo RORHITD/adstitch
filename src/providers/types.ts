@@ -4,6 +4,8 @@ export interface TextRequest {
   temperature?: number;
   /** local image paths sent as multimodal input (QC judging) */
   images?: string[];
+  /** local video paths sent as multimodal input (speech-timing analysis) */
+  videos?: string[];
 }
 
 export interface ImageRequest {

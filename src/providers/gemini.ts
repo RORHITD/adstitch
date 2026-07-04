@@ -32,6 +32,9 @@ export class GeminiProvider implements Provider {
     for (const img of req.images ?? []) {
       parts.push({ inlineData: { data: fs.readFileSync(img).toString("base64"), mimeType: mimeFor(img) } });
     }
+    for (const vid of req.videos ?? []) {
+      parts.push({ inlineData: { data: fs.readFileSync(vid).toString("base64"), mimeType: "video/mp4" } });
+    }
     parts.push({ text: req.prompt });
     const res = await retry(
       () =>

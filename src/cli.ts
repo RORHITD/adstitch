@@ -14,6 +14,7 @@ import { ensureCast } from "./pipeline/cast.js";
 import { generateKeyframes, beatFrames } from "./pipeline/keyframes.js";
 import { generateSegments, segmentPath } from "./pipeline/videos.js";
 import { savePersona, listPersonas, loadPersona } from "./pipeline/personas.js";
+import { generateBroll } from "./pipeline/broll.js";
 import { stitchAd } from "./pipeline/stitch.js";
 import { estimateRun, printEstimate, printLedger } from "./pipeline/cost.js";
 import { hasFfmpeg } from "./util/ffmpeg.js";
@@ -281,9 +282,10 @@ program
   .option("--matrix <beats>", "emit one final per variant combo of these beats, e.g. --matrix hook")
   .option("--music <file>", "background music bed mixed under the voice")
   .option("--music-volume <v>", "music level 0-1", parseFloat)
-  .option("--trim-tail <s>", "seconds cut from clip ends at match joins (default 0.4 — kills the decelerate-into-frame hiccup)", parseFloat)
-  .option("--trim-head <s>", "seconds cut from clip starts at match joins (default 0.25)", parseFloat)
-  .option("--no-trim", "disable match-join action trimming")
+  .option("--style <s>", "plain | flow (one-take, speech-aware tail ramping) | tight (cut to the spoken lines)", "plain")
+  .option("--cutaways", "tight style: hide joins under product B-roll inserts (run `adstitch broll` first)")
+  .option("--trim-tail <s>", "plain style: manual seconds cut from clip ends at match joins", parseFloat)
+  .option("--trim-head <s>", "plain style: manual seconds cut from clip starts at match joins", parseFloat)
   .option("--out <name>", "output basename")
   .description("normalize + join segments (+ optional music bed) into the final ad")
   .action(async (name: string, opts) => {
@@ -291,8 +293,10 @@ program
     const project = loadProject(ctx.projectsRoot, name);
     const sb = readStoryboard(project);
     const transition = (opts.transition ?? ctx.cfg.defaults.transition) as "cut" | "smooth";
-    const trimTail = opts.trim === false ? 0 : opts.trimTail;
-    const trimHead = opts.trim === false ? 0 : opts.trimHead;
+    const style = opts.style as "plain" | "flow" | "tight";
+    if (!["plain", "flow", "tight"].includes(style)) throw new Error(`unknown style "${style}" — use plain | flow | tight`);
+    const trimTail = opts.trimTail;
+    const trimHead = opts.trimHead;
 
     if (opts.matrix) {
       const ids = parseBeats(sb.beats.map((b) => b.id), opts.matrix)!;
@@ -309,11 +313,12 @@ program
         const out = await stitchAd(project, sb, ctx.cfg, {
           transition,
           trimTail, trimHead,
+          style, cutaways: opts.cutaways,
           picks: { ...basePicks, ...Object.fromEntries(combo) },
           musicPath: opts.music,
           musicVolume: opts.musicVolume,
           outName: `${opts.out ?? project.name}-${combo.map(([id, v]) => `${id}${v}`).join("-")}`,
-        });
+        }, ctx.provider);
         log.ok(`matrix final: ${out}`);
       }
       return;
@@ -322,11 +327,12 @@ program
     const out = await stitchAd(project, sb, ctx.cfg, {
       transition,
       trimTail, trimHead,
+      style, cutaways: opts.cutaways,
       picks: parseKV(opts.pick),
       musicPath: opts.music,
       musicVolume: opts.musicVolume,
       outName: opts.out,
-    });
+    }, ctx.provider);
     log.ok(`final ad: ${out}`);
   });
 
@@ -488,6 +494,29 @@ program
     const sb = readStoryboard(project);
     printEstimate(estimateRun(project, sb, ctx.cfg, videoModel(ctx, opts), parseKV(opts.variants)), { qcReroll: ctx.cfg.qc.enabled });
     printLedger(project);
+  });
+
+program
+  .command("broll")
+  .argument("<name>")
+  .option("--count <n>", "number of product cutaway clips", (v: string) => parseInt(v, 10), 2)
+  .option("--fast")
+  .option("--draft", "use the lite draft model", true)
+  .option("--model <id>")
+  .option("--force")
+  .option("--yes", "skip the spend confirmation")
+  .description("render person-free product close-ups used as cutaway inserts (stitch --style tight --cutaways)")
+  .action(async (name: string, opts) => {
+    const ctx = makeCtx(program.opts(), name);
+    const project = loadProject(ctx.projectsRoot, name);
+    const sb = readStoryboard(project);
+    const model = videoModel(ctx, { ...opts, draft: opts.fast || opts.model ? false : opts.draft });
+    const rate = ctx.cfg.pricing.videoPerSecond[model] ?? 0.4;
+    const est = opts.count * 4 * rate;
+    log.money(`estimated spend: ~$${est.toFixed(2)} (${opts.count} × 4s ${model})`);
+    await confirmSpend(ctx, est, !!opts.yes);
+    const outs = await generateBroll(project, sb, ctx.provider, ctx.cfg, { count: opts.count, model, force: opts.force });
+    log.ok(`B-roll ready: ${outs.map((o) => path.basename(o)).join(", ")} — use: adstitch stitch ${name} --style tight --cutaways`);
   });
 
 const personaCmd = program.command("persona").description("reusable persona library (portrait + locked description, shared across campaigns)");

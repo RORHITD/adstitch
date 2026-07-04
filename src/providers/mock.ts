@@ -63,6 +63,10 @@ export class MockProvider implements Provider {
     if (req.prompt.includes("QC_JUDGE")) {
       return JSON.stringify({ pass: true, reasons: [] });
     }
+    if (req.prompt.includes("SPEECH_TIMING")) {
+      const duration = parseFloat(req.prompt.match(/DURATION:\s*([\d.]+)/)?.[1] ?? "8");
+      return JSON.stringify({ speechStart: 0.2, speechEnd: Math.max(0.5, duration - 2) });
+    }
     if (req.prompt.includes("ALTERNATES_REQUEST")) {
       const count = parseInt(req.prompt.match(/ALTERNATES_COUNT:\s*(\d+)/)?.[1] ?? "1", 10);
       const alternates = Array.from({ length: count }, (_, k) => ({
@@ -144,21 +148,21 @@ export class MockProvider implements Provider {
         "-loop", "1", "-t", String(half + 1), "-i", req.lastFramePath,
         "-f", "lavfi", "-i", `sine=frequency=${tone}:duration=${d}`,
         "-filter_complex",
-        `[0:v]scale=${w}:${h},setsar=1[v0];[1:v]scale=${w}:${h},setsar=1[v1];[v0][v1]xfade=transition=fade:duration=1:offset=${half - 0.5},${dt}[v];[2:a]volume=0.15[a]`,
+        `[0:v]scale=${w}:${h},setsar=1[v0];[1:v]scale=${w}:${h},setsar=1[v1];[v0][v1]xfade=transition=fade:duration=1:offset=${half - 0.5},${dt}[v];[2:a]volume=1.4,volume=0.02:enable='gte(t,${Math.max(0.5, d - 2).toFixed(2)})'[a]`,
         "-map", "[v]", "-map", "[a]", ...vcodec, req.outPath,
       ]);
     } else if (req.firstFramePath) {
       await ffmpeg([
         "-loop", "1", "-t", String(d), "-i", req.firstFramePath,
         "-f", "lavfi", "-i", `sine=frequency=${tone}:duration=${d}`,
-        "-filter_complex", `[0:v]scale=${w}:${h},setsar=1,${dt}[v];[1:a]volume=0.15[a]`,
+        "-filter_complex", `[0:v]scale=${w}:${h},setsar=1,${dt}[v];[1:a]volume=1.4,volume=0.02:enable='gte(t,${Math.max(0.5, d - 2).toFixed(2)})'[a]`,
         "-map", "[v]", "-map", "[a]", ...vcodec, req.outPath,
       ]);
     } else {
       await ffmpeg([
         "-f", "lavfi", "-i", `color=c=${colorFor(req.prompt)}:s=${w}x${h}:r=24`,
         "-f", "lavfi", "-i", `sine=frequency=${tone}:duration=${d}`,
-        "-filter_complex", `[0:v]${dt}[v];[1:a]volume=0.15[a]`,
+        "-filter_complex", `[0:v]${dt}[v];[1:a]volume=1.4,volume=0.02:enable='gte(t,${Math.max(0.5, d - 2).toFixed(2)})'[a]`,
         "-map", "[v]", "-map", "[a]", ...vcodec, req.outPath,
       ]);
     }
