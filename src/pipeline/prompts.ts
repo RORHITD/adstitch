@@ -206,6 +206,7 @@ ${paceRule}
 11. Never open with a second-person personal-attribute question ("Do you struggle with [condition]?" — platform violation). Use first-person-creator or general-truth phrasing ("Bloating after every meal isn't normal").
 12. Frame compositions: keep the face and product in the vertical middle of the frame; platform UI covers the top ~15% and bottom ~35%. Avoid prolonged tight close-ups of the mouth and complex finger work (the two most scrutinized AI artifacts).
 13. Camera: name ONE simple proven move per beat in the "camera" field — choose from: slow push-in, crash zoom (hooks), handheld selfie sway, slow orbit/arc (product reveals), whip-pan into frame, dolly-out reveal, static with subject lean-in. One move per shot, no combinations.
+14. THE 30-DEGREE RULE (non-negotiable for "cut" transitions): consecutive beats MUST change shot size by a full step (close-up ↔ medium ↔ wide) OR camera angle by at least 30 degrees — never two similar chest-up frontal framings in a row, or the cut reads as a jump cut. Write each startFramePrompt with an explicit shot scale and camera position (e.g. "tight close-up, face filling the frame", "wide shot from across the room, full couch visible", "medium shot from beside the window looking back"). Vary the ladder across the ad: close → wide → medium-new-angle → high/low angle → medium-close.
 
 Return ONLY a JSON object with this exact shape (no markdown, no commentary):
 {
