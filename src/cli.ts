@@ -281,6 +281,9 @@ program
   .option("--matrix <beats>", "emit one final per variant combo of these beats, e.g. --matrix hook")
   .option("--music <file>", "background music bed mixed under the voice")
   .option("--music-volume <v>", "music level 0-1", parseFloat)
+  .option("--trim-tail <s>", "seconds cut from clip ends at match joins (default 0.4 — kills the decelerate-into-frame hiccup)", parseFloat)
+  .option("--trim-head <s>", "seconds cut from clip starts at match joins (default 0.25)", parseFloat)
+  .option("--no-trim", "disable match-join action trimming")
   .option("--out <name>", "output basename")
   .description("normalize + join segments (+ optional music bed) into the final ad")
   .action(async (name: string, opts) => {
@@ -288,6 +291,8 @@ program
     const project = loadProject(ctx.projectsRoot, name);
     const sb = readStoryboard(project);
     const transition = (opts.transition ?? ctx.cfg.defaults.transition) as "cut" | "smooth";
+    const trimTail = opts.trim === false ? 0 : opts.trimTail;
+    const trimHead = opts.trim === false ? 0 : opts.trimHead;
 
     if (opts.matrix) {
       const ids = parseBeats(sb.beats.map((b) => b.id), opts.matrix)!;
@@ -303,6 +308,7 @@ program
       for (const combo of combos) {
         const out = await stitchAd(project, sb, ctx.cfg, {
           transition,
+          trimTail, trimHead,
           picks: { ...basePicks, ...Object.fromEntries(combo) },
           musicPath: opts.music,
           musicVolume: opts.musicVolume,
@@ -315,6 +321,7 @@ program
 
     const out = await stitchAd(project, sb, ctx.cfg, {
       transition,
+      trimTail, trimHead,
       picks: parseKV(opts.pick),
       musicPath: opts.music,
       musicVolume: opts.musicVolume,

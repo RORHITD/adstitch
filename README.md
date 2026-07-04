@@ -3,7 +3,7 @@
 Generate **stitched multi-beat video ad creatives** (Hook → Problem → Product Reveal → Result → CTA) from a product brief, using the Gemini API (Veo 3.1 + Nano Banana) directly — the Higgsfield workflow without the Higgsfield bill. BYO API key; a full 34s draft ad runs ~$3, ship-quality ~$15. MIT licensed, zero install scripts.
 
 ```bash
-npm install -g @ai-creatives/adstitch   # requires Node 20+ and ffmpeg
+npm install -g adstitch   # requires Node 20+ and ffmpeg
 adstitch doctor
 ```
 

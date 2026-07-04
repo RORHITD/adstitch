@@ -18,9 +18,18 @@ export interface StitchOptions {
   musicPath?: string;
   musicVolume?: number;
   outName?: string;
+  /** seconds trimmed off a clip's END at frame-matched joins (default 0.4).
+   * First/last-frame conditioning makes Veo decelerate into the target frame
+   * and accelerate out of it — trimming both sides cuts on action and removes
+   * the slow-freeze-speed-up hiccup. Set 0 to disable. */
+  trimTail?: number;
+  /** seconds trimmed off a clip's START at frame-matched joins (default 0.25) */
+  trimHead?: number;
 }
 
 const FADE = 0.15;
+const MATCH_TRIM_TAIL = 0.4;
+const MATCH_TRIM_HEAD = 0.25;
 
 export async function stitchAd(project: Project, sb: Storyboard, cfg: Config, opts: StitchOptions): Promise<string> {
   const inputs = sb.beats.map((b) => {
@@ -33,15 +42,25 @@ export async function stitchAd(project: Project, sb: Storyboard, cfg: Config, op
   const normDir = ensureDir(path.join(project.segmentsDir, ".norm"));
   ensureDir(project.finalDir);
 
-  // 1) normalize: identical codec/fps/geometry + loudness so segments join cleanly
+  // 1) normalize: identical codec/fps/geometry + loudness so segments join
+  // cleanly. At frame-matched joins, trim the deceleration tail / acceleration
+  // head so the cut lands on continuous motion, and micro-fade audio edges to
+  // kill clicks at the hard cuts.
+  const trimTail = opts.trimTail ?? MATCH_TRIM_TAIL;
+  const trimHead = opts.trimHead ?? MATCH_TRIM_HEAD;
   const normed: string[] = [];
   for (let i = 0; i < inputs.length; i++) {
     const out = path.join(normDir, `n${i}.mp4`);
-    log.dim(`normalizing ${path.basename(inputs[i])}`);
+    const head = i > 0 && sb.beats[i - 1].transitionOut === "match" ? trimHead : 0;
+    const tail = sb.beats[i].transitionOut === "match" ? trimTail : 0;
+    const srcDur = await ffprobeDuration(inputs[i]);
+    const keep = Math.max(1, srcDur - head - tail);
+    log.dim(`normalizing ${path.basename(inputs[i])}${head || tail ? ` (trim -${head.toFixed(2)}s head / -${tail.toFixed(2)}s tail)` : ""}`);
     await ffmpeg([
       "-i", inputs[i],
+      "-ss", head.toFixed(3), "-t", keep.toFixed(3),
       "-vf", `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${cfg.defaults.fps}`,
-      "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
+      "-af", `loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=in:st=0:d=0.015,afade=t=out:st=${Math.max(0, keep - 0.02).toFixed(3)}:d=0.02`,
       "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p",
       "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
       out,

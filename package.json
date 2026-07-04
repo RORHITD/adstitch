@@ -1,5 +1,5 @@
 {
-  "name": "@ai-creatives/adstitch",
+  "name": "adstitch",
   "version": "0.1.0",
   "description": "Generate stitched multi-beat AI video ads (hook → problem → reveal → result → CTA) from a product brief using Veo/Gemini APIs — frame-matched continuity, auto-QC, hook matrices, persona library. BYO API key, ~$3 per draft ad.",
   "type": "module",
