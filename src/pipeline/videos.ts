@@ -144,9 +144,25 @@ export async function generateSegments(
 
   let generated = 0;
   let cached = 0;
+  // one segment's failure must never abort siblings mid-render — in-flight Veo
+  // operations are already billed server-side and their downloads would be lost
+  const failures: Array<{ artifactId: string; message: string }> = [];
   await Promise.all(
     plans.map((plan) =>
       limit(async () => {
+        const failId = segmentArtifactId(plan);
+        try {
+          await renderPlan(plan);
+        } catch (err) {
+          log.error(`${failId} failed: ${(err as Error).message}`);
+          failures.push({ artifactId: failId, message: (err as Error).message });
+        }
+      }),
+    ),
+  );
+
+  async function renderPlan(plan: SegmentPlan): Promise<void> {
+    {
         for (const f of [plan.firstFramePath, plan.lastFramePath]) {
           if (f && !fs.existsSync(f)) throw new Error(`missing keyframe ${f} — run: adstitch keyframes ${project.name}`);
         }
@@ -206,11 +222,15 @@ export async function generateSegments(
         saveManifest(project, manifest); // persist as we go — a crash shouldn't lose paid renders
         generated++;
         log.ok(`${artifactId} → ${plan.outPath}`);
-      }),
-    ),
-  );
+    }
+  }
 
   fs.rmSync(qcScratch, { recursive: true, force: true });
   saveManifest(project, manifest);
+  if (failures.length) {
+    throw new Error(
+      `${failures.length} segment(s) failed [${failures.map((f) => f.artifactId).join(", ")}] — completed segments are saved; re-run to retry only the failures. First error: ${failures[0].message}`,
+    );
+  }
   return { generated, cached };
 }

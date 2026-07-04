@@ -1,6 +1,11 @@
 # adstitch
 
-Generate **stitched multi-beat video ad creatives** (Hook → Problem → Product Reveal → Result → CTA) from a product brief, using the Gemini API (Veo 3.1 + Nano Banana) directly — the Higgsfield workflow without the Higgsfield bill.
+Generate **stitched multi-beat video ad creatives** (Hook → Problem → Product Reveal → Result → CTA) from a product brief, using the Gemini API (Veo 3.1 + Nano Banana) directly — the Higgsfield workflow without the Higgsfield bill. BYO API key; a full 34s draft ad runs ~$3, ship-quality ~$15. MIT licensed, zero install scripts.
+
+```bash
+npm install -g @ai-creatives/adstitch   # requires Node 20+ and ffmpeg
+adstitch doctor
+```
 
 The hard part of stitching AI clips is that each generation reinvents the person, wardrobe, set and lighting, so cuts look like different ads spliced together. adstitch solves continuity structurally — see [docs/CONTINUITY.md](docs/CONTINUITY.md):
 
@@ -11,22 +16,23 @@ The hard part of stitching AI clips is that each generation reinvents the person
 ## Quickstart
 
 ```bash
-npm install && npm run build
-cp .env.example .env        # add your key from https://aistudio.google.com/apikey
-node dist/cli.js doctor     # verify ffmpeg + key + models
+export GEMINI_API_KEY=...   # from https://aistudio.google.com/apikey (or put it in .env)
+adstitch doctor             # verify ffmpeg + key + models
 
-node dist/cli.js init my-ad --template ugc-5beat --product "GlowPop Probiotic Soda"
+adstitch init my-ad --template ugc-5beat --product "GlowPop Probiotic Soda"
 # 1. edit projects/my-ad/brief.md  (see examples/poppi-style-brief.md)
 # 2. drop REAL product photos into projects/my-ad/assets/ as product1.png…
 #    optional: persona.png to lock the on-camera person
-node dist/cli.js run my-ad          # plan → cast → keyframes → videos → stitch
+adstitch run my-ad --draft          # plan → cast → keyframes → videos → stitch, ~$3
 open projects/my-ad/final/*.mp4
 ```
+
+(Running from a clone instead: `npm install && npm run build`, then `node dist/cli.js …` everywhere you see `adstitch …`.)
 
 Try the whole pipeline **free** first with the mock provider (ffmpeg-synthesized placeholder clips, real stitching):
 
 ```bash
-node dist/cli.js run my-ad --provider mock --yes
+adstitch run my-ad --provider mock --yes
 ```
 
 ## Commands

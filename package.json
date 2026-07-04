@@ -1,11 +1,22 @@
 {
-  "name": "adstitch",
+  "name": "@ai-creatives/adstitch",
   "version": "0.1.0",
-  "description": "Generate stitched multi-beat ad creatives (hook → problem → reveal → result → CTA) from a product brief using Veo / Gemini APIs, with keyframe-chained continuity so segments cut together seamlessly.",
+  "description": "Generate stitched multi-beat AI video ads (hook → problem → reveal → result → CTA) from a product brief using Veo/Gemini APIs — frame-matched continuity, auto-QC, hook matrices, persona library. BYO API key, ~$3 per draft ad.",
   "type": "module",
   "bin": {
     "adstitch": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "templates",
+    "docs",
+    "examples",
+    "scripts/smoke.mjs",
+    ".env.example",
+    "README.md",
+    "ROADMAP.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=20"
   },
@@ -13,7 +24,31 @@
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node scripts/smoke.mjs"
+    "test": "npm run build && node scripts/smoke.mjs",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RORHITD/adstitch.git"
+  },
+  "homepage": "https://github.com/RORHITD/adstitch#readme",
+  "bugs": {
+    "url": "https://github.com/RORHITD/adstitch/issues"
+  },
+  "keywords": [
+    "ai-video",
+    "veo",
+    "gemini",
+    "ugc-ads",
+    "video-ads",
+    "ad-creative",
+    "nano-banana",
+    "video-generation",
+    "marketing",
+    "ffmpeg"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@google/genai": "^1.16.0",
