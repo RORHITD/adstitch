@@ -89,7 +89,9 @@ export class GeminiProvider implements Provider {
       numberOfVideos: 1,
     };
     if (req.negativePrompt) config.negativePrompt = req.negativePrompt;
-    if (req.seed !== undefined) config.seed = req.seed;
+    // req.seed is deliberately NOT sent: the Gemini API rejects the seed param
+    // ("seed parameter is not supported"). Generation is nondeterministic, so
+    // re-rolls vary anyway; the seed only differentiates variant cache hashes.
     if (req.lastFramePath) config.lastFrame = localImage(req.lastFramePath);
     if (req.referenceImagePaths?.length) {
       config.referenceImages = req.referenceImagePaths.slice(0, 3).map((p) => ({
