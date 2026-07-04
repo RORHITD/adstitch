@@ -116,6 +116,16 @@ export async function generateSegments(
     }
   }
 
+  // First+last frame interpolation requires 8s clips (live-verified: 6s +
+  // lastFrame returns "Your use case is currently not supported" on both lite
+  // and fast tiers) — fail before spending, not mid-run.
+  const badMatch = plans.filter((p) => p.lastFramePath && p.beat.durationSeconds !== 8);
+  if (badMatch.length) {
+    throw new Error(
+      `first+last frame interpolation (transitionOut: "match") requires 8s clips, but beats [${[...new Set(badMatch.map((p) => p.beat.id))].join(", ")}] are shorter — set durationSeconds to 8 in storyboard.json or use "cut" transitions.`,
+    );
+  }
+
   // Veo reference images can't be combined with first-frame conditioning, and
   // every adstitch segment is first-frame conditioned. Identity comes from the
   // keyframes (which DO use the references).

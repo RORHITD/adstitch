@@ -76,7 +76,7 @@ action: leans into the camera holding the can
 
 ## Templates
 
-`ugc-5beat` (the classic stitched ad, editorial cuts), `ugc-5beat-seamless` (frame-matched, plays like one take), `before-after`, `testimonial`. Add your own JSON to `templates/` — durations must be 4/6/8s (Veo's allowed lengths).
+`ugc-5beat` (the classic stitched ad, editorial cuts), `ugc-5beat-seamless` (frame-matched, plays like one take), `before-after`, `testimonial`. Add your own JSON to `templates/` — durations must be 4/6/8s (Veo's allowed lengths), and `match` transitions require 8s beats (a Gemini API constraint on first+last-frame interpolation).
 
 ## Cost (estimates — verify current pricing)
 

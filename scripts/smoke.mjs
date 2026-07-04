@@ -30,7 +30,7 @@ try {
 
   const final = path.join(proj, "final", "__smoke-cut.mp4");
   check("final video exists", fs.existsSync(final));
-  const expected = 8 + 6 + 8 + 6 + 6;
+  const expected = 8 + 8 + 8 + 8 + 6;
   const d0 = dur(final);
   check("duration ≈ Σ beats", Math.abs(d0 - expected) < 1.5, `${d0.toFixed(2)}s vs ${expected}s`);
 

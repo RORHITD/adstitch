@@ -20,22 +20,29 @@ import { hasFfmpeg } from "./util/ffmpeg.js";
 import { readJson, writeJson } from "./util/fs.js";
 import { log } from "./util/log.js";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// packageRoot = where adstitch is installed (shipped templates live here);
+// workRoot = the user's current directory (their projects/personas/config/.env).
+// In a git clone they're the same place; for npm-installed usage they differ —
+// user data must never land inside node_modules.
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const workRoot = process.cwd();
 
-// For the Google key vars, the repo .env deliberately OVERRIDES inherited shell
-// env — stale keys exported from shell profiles are a common silent failure.
+// For the Google key vars, the workspace .env deliberately OVERRIDES inherited
+// shell env — stale keys exported from shell profiles are a common silent failure.
 const ENV_OVERRIDES = new Set(["GEMINI_API_KEY", "GOOGLE_API_KEY"]);
 
 function loadDotEnv(): void {
-  const envFile = path.join(repoRoot, ".env");
-  if (!fs.existsSync(envFile)) return;
-  for (const line of fs.readFileSync(envFile, "utf8").split("\n")) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (!m) continue;
-    const [, name, raw] = m;
-    const value = raw.replace(/^["']|["']$/g, "");
-    if (!value) continue;
-    if (!(name in process.env) || ENV_OVERRIDES.has(name)) process.env[name] = value;
+  for (const envFile of [path.join(workRoot, ".env"), path.join(packageRoot, ".env")]) {
+    if (!fs.existsSync(envFile)) continue;
+    for (const line of fs.readFileSync(envFile, "utf8").split("\n")) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (!m) continue;
+      const [, name, raw] = m;
+      const value = raw.replace(/^["']|["']$/g, "");
+      if (!value) continue;
+      if (!(name in process.env) || ENV_OVERRIDES.has(name)) process.env[name] = value;
+    }
+    return; // first .env found wins
   }
 }
 
@@ -46,20 +53,24 @@ interface Ctx {
 }
 
 function makeCtx(opts: { provider?: string; projectsDir?: string }, projectName?: string): Ctx {
-  const projectsRoot = opts.projectsDir ? path.resolve(opts.projectsDir) : path.join(repoRoot, "projects");
+  const projectsRoot = opts.projectsDir ? path.resolve(opts.projectsDir) : path.join(workRoot, "projects");
   const projectDir = projectName ? path.join(projectsRoot, projectName) : undefined;
-  const cfg = loadConfig(repoRoot, projectDir, opts.provider ? { provider: opts.provider } : {});
+  const cfg = loadConfig(workRoot, projectDir, opts.provider ? { provider: opts.provider } : {});
   const provider: Provider = cfg.provider === "mock" ? new MockProvider() : new GeminiProvider();
   return { cfg, provider, projectsRoot };
 }
 
 function templateFile(name: string): string {
-  const file = path.join(repoRoot, "templates", `${name}.json`);
-  if (!fs.existsSync(file)) {
-    const available = fs.readdirSync(path.join(repoRoot, "templates")).map((f) => f.replace(/\.json$/, "")).join(", ");
-    throw new Error(`template "${name}" not found. Available: ${available}`);
+  // user templates in the workspace win over the shipped set
+  for (const root of [workRoot, packageRoot]) {
+    const file = path.join(root, "templates", `${name}.json`);
+    if (fs.existsSync(file)) return file;
   }
-  return file;
+  const shipped = fs.readdirSync(path.join(packageRoot, "templates")).map((f) => f.replace(/\.json$/, ""));
+  const custom = fs.existsSync(path.join(workRoot, "templates"))
+    ? fs.readdirSync(path.join(workRoot, "templates")).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/, ""))
+    : [];
+  throw new Error(`template "${name}" not found. Available: ${[...new Set([...custom, ...shipped])].join(", ")}`);
 }
 
 function projectTemplate(project: Project, override?: string): string {
@@ -152,10 +163,10 @@ program
   .description("scaffold a new campaign project")
   .action((name: string, opts) => {
     templateFile(opts.template); // validate early
-    const projectsRoot = program.opts().projectsDir ? path.resolve(program.opts().projectsDir) : path.join(repoRoot, "projects");
+    const projectsRoot = program.opts().projectsDir ? path.resolve(program.opts().projectsDir) : path.join(workRoot, "projects");
     const project = projectPaths(projectsRoot, name);
     if (fs.existsSync(project.briefPath)) throw new Error(`project "${name}" already exists at ${project.dir}`);
-    const persona = opts.persona ? loadPersona(repoRoot, opts.persona) : undefined;
+    const persona = opts.persona ? loadPersona(workRoot, opts.persona) : undefined;
     ensureProjectDirs(project);
     fs.writeFileSync(project.briefPath, BRIEF_TEMPLATE(opts.product));
     if (persona) {
@@ -483,7 +494,7 @@ personaCmd
     const ctx = makeCtx(program.opts(), opts.from);
     const project = loadProject(ctx.projectsRoot, opts.from);
     const sb = readStoryboard(project);
-    const dir = savePersona(repoRoot, slug, project, sb);
+    const dir = savePersona(workRoot, slug, project, sb);
     log.ok(`persona "${slug}" saved → ${dir}`);
     log.info(`reuse it: adstitch init <new-project> --persona ${slug}`);
   });
@@ -492,7 +503,7 @@ personaCmd
   .command("list")
   .description("list saved personas")
   .action(() => {
-    const all = listPersonas(repoRoot);
+    const all = listPersonas(workRoot);
     if (!all.length) {
       log.info("no personas saved yet — adstitch persona save <slug> --from <project>");
       return;
