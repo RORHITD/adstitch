@@ -251,13 +251,15 @@ async function stitchTight(normed: string[], normBrolls: string[], spans: Speech
   const parts: string[] = [];
   const seq: string[] = [];
 
+  // Edge fades are DECLICK-ONLY (~12ms). Anything longer pulls the room tone to
+  // digital zero right at the boundary, and the next clip's voice onset then
+  // measures as a 20-25dB slam — same "never fade a tail to silence" rule as flow.
   for (let i = 0; i < N; i++) {
     const d = durations[i];
-    const fadeIn = 0.03;
-    const outStart = Math.max(0, d - 0.09);
+    const outStart = Math.max(0, d - 0.015);
     parts.push(
       `[${i}:v]setpts=PTS-STARTPTS[cv${i}]`,
-      `[${i}:a]asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${fadeIn},afade=t=out:st=${outStart.toFixed(3)}:d=0.06[ca${i}]`,
+      `[${i}:a]asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.012,afade=t=out:st=${outStart.toFixed(3)}:d=0.012[ca${i}]`,
     );
     seq.push(`[cv${i}][ca${i}]`);
 
@@ -269,7 +271,7 @@ async function stitchTight(normed: string[], normBrolls: string[], spans: Speech
       const inIdx = N + j;
       parts.push(
         `[${inIdx}:v]trim=start=${off.toFixed(3)}:end=${(off + INSERT_LEN).toFixed(3)},setpts=PTS-STARTPTS[iv${i}]`,
-        `[${inIdx}:a]atrim=start=${off.toFixed(3)}:end=${(off + INSERT_LEN).toFixed(3)},asetpts=PTS-STARTPTS,volume=0.5,afade=t=in:st=0:d=0.04,afade=t=out:st=${(INSERT_LEN - 0.08).toFixed(3)}:d=0.06[ia${i}]`,
+        `[${inIdx}:a]atrim=start=${off.toFixed(3)}:end=${(off + INSERT_LEN).toFixed(3)},asetpts=PTS-STARTPTS,volume=0.5,afade=t=in:st=0:d=0.012,afade=t=out:st=${(INSERT_LEN - 0.015).toFixed(3)}:d=0.012[ia${i}]`,
       );
       seq.push(`[iv${i}][ia${i}]`);
     }

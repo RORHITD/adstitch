@@ -41,14 +41,22 @@ export function styleBlock(sb: Storyboard, aspectRatio: string): string {
   ].join("\n");
 }
 
+/** Veo vocalizes odd punctuation inside quoted dialogue (an em-dash became a
+ * spoken invented name, "Tannerym") — flatten dashes/colons/semicolons to
+ * commas before the line reaches the video model. Hyphenated words survive. */
+export function sanitizeSpokenLine(dialogue: string): string {
+  return dialogue.replace(/\s*[—–;:]\s*/g, ", ").replace(/,\s*,/g, ",").replace(/\s{2,}/g, " ").trim();
+}
+
 export function videoPrompt(sb: Storyboard, beat: Beat, aspectRatio: string): string {
   return [
     styleBlock(sb, aspectRatio),
     "",
     `THIS SHOT — "${beat.title}" (${beat.durationSeconds}s, one continuous take, no cuts):`,
     `Camera: ${beat.camera}`,
+    `ONE UNBROKEN SHOT: a single continuous take from one camera setup for the full ${beat.durationSeconds} seconds. The camera NEVER cuts, NEVER dissolves or cross-fades, and NEVER jumps to a different framing or position mid-clip — the only camera motion allowed is the single move named above.`,
     `Action: ${beat.action}`,
-    `She looks into the lens and says, "${beat.dialogue}" — delivered with ${beat.emotion}.`,
+    `She looks into the lens and says, "${sanitizeSpokenLine(beat.dialogue)}" — delivered with ${beat.emotion}.`,
     `The product "${sb.campaign.product.name}" looks exactly like the first-frame image, label sharp and readable.`,
     `Audio: her natural voice, subtle ambience that matches the location. No background music.`,
     `Strictly no on-screen text of any kind: no subtitles, no captions, no watermarks, no logos.`,
@@ -102,20 +110,22 @@ RULES:
 Return ONLY a JSON object (no markdown): {"alternates": [{"dialogue": string, "action": string, "camera": string, "emotion": string, "startFramePrompt": string}]} with exactly ${count} items.`;
 }
 
-export function qcJudgePrompt(sb: Storyboard): string {
+export function qcJudgePrompt(sb: Storyboard, beat?: Beat): string {
   return `QC_JUDGE
 You are a strict quality inspector for AI-generated video ad segments.
 Image 1 is the intended first-frame keyframe. The remaining images are frames sampled from the start, middle, and end of the rendered segment.
 The person who must appear: ${sb.style.personaVisual}
 The product: ${sb.campaign.product.name}.
+This segment must be ONE continuous take${beat ? ` whose only camera motion is: ${beat.camera}` : ""}.
 
 FAIL the segment if ANY of these is true:
 (a) the person in the video frames is clearly a DIFFERENT person than image 1 (face, hair, or wardrobe changed);
 (b) burned-in subtitles, captions, watermarks, or any overlaid text appear;
 (c) grotesque anatomical artifacts: mangled or extra fingers, warped face, melted features;
 (d) the product label is prominently featured but illegibly garbled;
-(e) the scene bears no resemblance to image 1 (wrong location or framing entirely).
-Minor softness, small motion blur, natural pose changes, or slight color shift are NOT failures.
+(e) the scene bears no resemblance to image 1 (wrong location or framing entirely);
+(f) a HIDDEN EDIT inside the clip: the start/middle/end frames come from obviously different camera setups (e.g. wide shot at the start but a close-up from a new position later, beyond what the named camera move produces), or any frame is a dissolve/double-exposure blending two shots (ghostly overlapping images).
+Minor softness, small motion blur, natural pose changes, or slight color shift are NOT failures. A gradual framing change consistent with the single named camera move is NOT a failure.
 
 Return ONLY JSON: {"pass": boolean, "reasons": string[]} — reasons empty when passing, each reason ≤12 words otherwise.`;
 }

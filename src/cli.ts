@@ -15,6 +15,7 @@ import { generateKeyframes, beatFrames } from "./pipeline/keyframes.js";
 import { generateSegments, segmentPath } from "./pipeline/videos.js";
 import { savePersona, listPersonas, loadPersona } from "./pipeline/personas.js";
 import { generateBroll } from "./pipeline/broll.js";
+import { verifyFinal } from "./pipeline/verify.js";
 import { stitchAd } from "./pipeline/stitch.js";
 import { estimateRun, printEstimate, printLedger } from "./pipeline/cost.js";
 import { hasFfmpeg } from "./util/ffmpeg.js";
@@ -494,6 +495,30 @@ program
     const sb = readStoryboard(project);
     printEstimate(estimateRun(project, sb, ctx.cfg, videoModel(ctx, opts), parseKV(opts.variants)), { qcReroll: ctx.cfg.qc.enabled });
     printLedger(project);
+  });
+
+program
+  .command("verify")
+  .argument("<name>")
+  .option("--final <f>", "final basename or path (default: newest final/*.mp4)")
+  .description("gate a finished ad: full-script speech check, visual identity/artifact sweep, join-audio profile")
+  .action(async (name: string, opts) => {
+    const ctx = makeCtx(program.opts(), name);
+    const project = loadProject(ctx.projectsRoot, name);
+    const sb = readStoryboard(project);
+    let finalPath: string;
+    if (opts.final) {
+      finalPath = fs.existsSync(opts.final) ? path.resolve(opts.final) : path.join(project.finalDir, `${opts.final.replace(/\.mp4$/, "")}.mp4`);
+    } else {
+      const finals = fs.readdirSync(project.finalDir).filter((f) => f.endsWith(".mp4"))
+        .map((f) => path.join(project.finalDir, f))
+        .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+      if (!finals.length) throw new Error(`no finals in ${project.finalDir} — run: adstitch stitch ${name}`);
+      finalPath = finals[0];
+    }
+    if (!fs.existsSync(finalPath)) throw new Error(`final not found: ${finalPath}`);
+    const { pass } = await verifyFinal(project, sb, ctx.provider, ctx.cfg, finalPath);
+    if (!pass) process.exit(1);
   });
 
 program

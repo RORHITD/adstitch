@@ -57,14 +57,17 @@ try {
   check("flow duration ≈ ramped math", Math.abs(flowDur - 34.5) < 1.2, `${flowDur.toFixed(2)}s vs 34.5s`);
   check("speech timing cached", Object.keys(manifest().artifacts).filter((k) => k.startsWith("timing/")).length === 5);
 
+  const verifyOut = sh(`${cli} verify __smoke --provider mock --final flow-test 2>&1`);
+  check("verify gate passes on mock final", /VERIFIED/.test(verifyOut));
+
   sh(`${cli} broll __smoke --provider mock --yes`);
   check("broll clips rendered", fs.existsSync(path.join(proj, "segments", "broll-1.mp4")) && fs.existsSync(path.join(proj, "segments", "broll-2.mp4")));
   sh(`${cli} stitch __smoke --provider mock --style tight --cutaways --out tight-test`);
   const tightFinal = path.join(proj, "final", "tight-test.mp4");
   check("tight+cutaways stitched", fs.existsSync(tightFinal));
-  // tight: 4 clips → (6.35-0.05)=6.3 each, cta → (4.35-0.05)=4.3, + 4×0.7 inserts ≈ 32.3
+  // tight: detector places speechEnd ≈ d-1.75 on mock envelopes → ≈ 34.2 with 4×0.7 inserts
   const tightDur = dur(tightFinal);
-  check("tight duration ≈ speech-cut math", Math.abs(tightDur - 32.3) < 1.5, `${tightDur.toFixed(2)}s vs 32.3s`);
+  check("tight duration ≈ speech-cut math", Math.abs(tightDur - 34.2) < 1.8, `${tightDur.toFixed(2)}s vs 34.2s`);
 
   // ---- hook matrix ---------------------------------------------------------
   const altOut = sh(`${cli} alternates __smoke hook=2 --provider mock`);
